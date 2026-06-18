@@ -71,3 +71,97 @@ docker exec agentops-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dv
 
 Verifies that Postgres is reachable and reports table, view, and seed counts.
 It never prints any value from `.env`.
+
+## Ingestion API
+
+A FastAPI service normalizes Claude Code / Codex events and stores them in
+PostgreSQL. It exposes `GET /health` and `POST /runs/events`.
+
+### Start the API
+
+With Docker Compose (builds the image, waits for Postgres to be healthy):
+
+```bash
+docker compose up -d --build api
+```
+
+For local development without Docker (Postgres must already be running):
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+set -a; . ./.env; set +a
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+The API reads the same `POSTGRES_*` variables as the database. On the host it
+defaults to `localhost:${POSTGRES_PORT}`; the Compose `api` service overrides
+these to reach Postgres at `postgres:5432`.
+
+### Check API health
+
+```bash
+curl -s http://localhost:8000/health
+```
+
+Healthy response (HTTP 200):
+
+```json
+{"status": "ok", "api": "ok", "database": "reachable"}
+```
+
+Returns HTTP 503 with `"database": "unreachable"` if Postgres cannot be reached.
+
+### Send a sample event
+
+```bash
+curl -s -X POST http://localhost:8000/runs/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "claude-code",
+    "session_id": "demo-session-1",
+    "event_type": "session_started",
+    "repository_id": "agentops-core-main",
+    "project_id": "agentops-core",
+    "model": "claude-opus-4-8",
+    "branch": "main",
+    "cwd": "/path/to/repo",
+    "intent": "demo",
+    "files_touched": ["app/main.py"],
+    "raw_payload": {"api_key": "sk-ant-EXAMPLE", "note": "hello"},
+    "source_event_id": "demo-evt-1"
+  }'
+```
+
+Response (HTTP 201 on first insert):
+
+```json
+{
+  "run_id": "…uuid…",
+  "event_id": "…uuid…",
+  "status": "created",
+  "redaction_status": "redacted"
+}
+```
+
+Re-sending the same `source_event_id` returns HTTP 200 with
+`"status": "duplicate"` and does not insert a second event. Secrets in
+`raw_payload` (here `api_key`) are redacted to `[REDACTED]` before storage.
+
+Interactive API docs are available at `http://localhost:8000/docs`.
+
+### Run the tests
+
+Tests run against the live Postgres container and clean up after themselves.
+
+```bash
+set -a; . ./.env; set +a
+.venv/bin/pytest
+```
+
+### Format and lint
+
+```bash
+.venv/bin/ruff format app tests
+.venv/bin/ruff check app tests
+```
