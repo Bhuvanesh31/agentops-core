@@ -1,0 +1,20 @@
+project_id: agentops-core
+project_name: AgentOps Core
+category: platform
+owner: bhuvanesh
+status: active
+priority: P0
+
+repository:
+  repository_id: agentops-core-main
+  default_branch: main
+
+agentops:
+  ledger_enabled: true
+  capture_claude_code: true
+  capture_codex: true
+  git_reconciliation: true
+
+data:
+  classification: internal
+  secret_redaction_required: true
