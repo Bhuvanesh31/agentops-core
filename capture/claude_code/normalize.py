@@ -103,3 +103,32 @@ def normalize_line(line: dict) -> list[dict[str, Any]]:
         return events
 
     return []  # unknown type -> drop
+
+
+def synthesize_session_events(
+    first_line: dict,
+    last_line: dict,
+    file_mtime: float,
+    now: float,
+    idle_seconds: float = 3600,
+) -> list[dict[str, Any]]:
+    """Synthesize session_started (always) and session_ended (only when idle)."""
+    session_id = first_line.get("sessionId")
+    events = [
+        _event(
+            "session_started",
+            first_line,
+            f"{session_id}#session_started",
+            {},
+        )
+    ]
+    if now - file_mtime >= idle_seconds:
+        events.append(
+            _event(
+                "session_ended",
+                last_line,
+                f"{session_id}#session_ended",
+                {},
+            )
+        )
+    return events
