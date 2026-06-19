@@ -100,9 +100,30 @@ def test_e2e_dry_run_writes_nothing(asgi_client, tmp_path):
     files = discover_transcripts(str(tmp_path))
     report = cli.process(asgi_client, "http://test", files, dry_run=True, now=10_000_000_000.0)
     assert report.events_created == 0
+    assert report.events_duplicate == 0
+    assert report.events_error == 0
 
     with get_connection() as conn:
         run = conn.execute(
             "SELECT run_id FROM runs WHERE session_id = %s", (session_id,)
         ).fetchone()
     assert run is None
+
+
+def test_process_counts_post_errors_without_aborting(asgi_client, tmp_path, monkeypatch):
+    session_id = f"pytest-session-{uuid4().hex}"
+    _write_transcript(tmp_path, session_id)
+
+    from capture.claude_code import client as client_mod
+    from capture.claude_code.discovery import discover_transcripts
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated exhausted retries")
+
+    monkeypatch.setattr(client_mod, "post_event", boom)
+
+    files = discover_transcripts(str(tmp_path))
+    report = cli.process(asgi_client, "http://test", files, now=10_000_000_000.0)
+
+    assert report.events_error >= 1
+    assert report.events_created == 0

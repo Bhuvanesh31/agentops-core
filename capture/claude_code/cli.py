@@ -29,9 +29,10 @@ def load_lines(path: Path) -> list[dict]:
     return lines
 
 
-def events_for_file(path: Path, resolution: identity.RepoResolution, now: float) -> list[dict]:
+def events_for_file(
+    path: Path, lines: list[dict], resolution: identity.RepoResolution, now: float
+) -> list[dict]:
     """Build POST-ready events for a registered transcript file."""
-    lines = load_lines(path)
     if not lines:
         return []
 
@@ -98,10 +99,14 @@ def process(
             continue
 
         report.files_processed += 1
-        for event in events_for_file(path, resolution, now):
+        for event in events_for_file(path, lines, resolution, now):
             if dry_run:
                 continue
-            status, _ = client.post_event(http, api_url, event)
+            try:
+                status, _ = client.post_event(http, api_url, event)
+            except RuntimeError:
+                report.events_error += 1
+                continue
             if status == "created":
                 report.events_created += 1
             elif status == "duplicate":
