@@ -36,9 +36,14 @@ def events_for_file(
     if not lines:
         return []
 
+    # The transcript filename is the canonical session id; boundary lines may
+    # lack a sessionId, so derive it from the path rather than from a line.
+    session_id = path.stem
     events: list[dict] = []
     events.extend(
-        normalize.synthesize_session_events(lines[0], lines[-1], path.stat().st_mtime, now)
+        normalize.synthesize_session_events(
+            session_id, lines[0], lines[-1], path.stat().st_mtime, now
+        )
     )
     for line in lines:
         events.extend(normalize.normalize_line(line))

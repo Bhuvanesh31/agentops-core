@@ -106,29 +106,28 @@ def normalize_line(line: dict) -> list[dict[str, Any]]:
 
 
 def synthesize_session_events(
+    session_id: str,
     first_line: dict,
     last_line: dict,
     file_mtime: float,
     now: float,
     idle_seconds: float = 3600,
 ) -> list[dict[str, Any]]:
-    """Synthesize session_started (always) and session_ended (only when idle)."""
-    session_id = first_line.get("sessionId")
-    events = [
-        _event(
-            "session_started",
-            first_line,
-            f"{session_id}#session_started",
-            {},
-        )
-    ]
+    """Synthesize session_started (always) and session_ended (only when idle).
+
+    ``session_id`` is the file's canonical session id (the transcript filename),
+    passed explicitly because boundary lines are not guaranteed to carry a
+    ``sessionId`` — the last line of a transcript can be a metadata line with no
+    session field, which would otherwise yield a null session_id and a rejected
+    event.
+    """
+    started = _event("session_started", first_line, f"{session_id}#session_started", {})
+    started["session_id"] = session_id
+    events = [started]
     if now - file_mtime >= idle_seconds:
-        events.append(
-            _event(
-                "session_ended",
-                last_line,
-                f"{session_id}#session_ended",
-                {},
-            )
-        )
+        ended = _event("session_ended", last_line, f"{session_id}#session_ended", {})
+        ended["session_id"] = session_id
+        ended["cwd"] = ended["cwd"] or first_line.get("cwd")
+        ended["branch"] = ended["branch"] or first_line.get("gitBranch")
+        events.append(ended)
     return events
