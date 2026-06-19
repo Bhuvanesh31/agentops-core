@@ -81,6 +81,66 @@ ON CONFLICT (repository_id) DO UPDATE SET
 
 
 -- ------------------------------------------------------------
+-- CATCH-ALL PROJECT + REPOSITORY
+-- Captures sessions from working folders that have no git remote
+-- (planning/notes dirs, repos without a remote, deleted folders).
+-- Sessions are routed here by the capture adapter's --catch-all flag;
+-- the original folder is preserved per-run in runs.cwd for later
+-- reclassification. remote_url is NULL by design (no remote).
+-- ------------------------------------------------------------
+INSERT INTO projects (
+    project_id,
+    project_name,
+    category,
+    status,
+    owner,
+    description
+)
+VALUES (
+    'unsorted',
+    'Unsorted',
+    'uncategorized',
+    'active',
+    'bhuvanesh',
+    'Catch-all for agent sessions run outside a git-remote-backed repository; reclassify by cwd.'
+)
+ON CONFLICT (project_id) DO UPDATE SET
+    project_name = EXCLUDED.project_name,
+    category     = EXCLUDED.category,
+    status       = EXCLUDED.status,
+    owner        = EXCLUDED.owner,
+    description  = EXCLUDED.description,
+    updated_at   = NOW();
+
+INSERT INTO repositories (
+    repository_id,
+    project_id,
+    repository_name,
+    remote_url,
+    local_path,
+    default_branch,
+    is_active
+)
+VALUES (
+    'unsorted-local',
+    'unsorted',
+    'Unsorted (local, no remote)',
+    NULL,
+    NULL,
+    'main',
+    TRUE
+)
+ON CONFLICT (repository_id) DO UPDATE SET
+    project_id      = EXCLUDED.project_id,
+    repository_name = EXCLUDED.repository_name,
+    remote_url      = EXCLUDED.remote_url,
+    local_path      = EXCLUDED.local_path,
+    default_branch  = EXCLUDED.default_branch,
+    is_active       = EXCLUDED.is_active,
+    updated_at      = NOW();
+
+
+-- ------------------------------------------------------------
 -- TOOLS
 -- Stable slugs (claude-code, codex) are the tool_id values
 -- that runs, run_events, and commits reference.

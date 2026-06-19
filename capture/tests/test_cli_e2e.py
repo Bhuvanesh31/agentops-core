@@ -127,3 +127,86 @@ def test_process_counts_post_errors_without_aborting(asgi_client, tmp_path, monk
 
     assert report.events_error >= 1
     assert report.events_created == 0
+
+
+def _write_local_transcript(tmp_path, cwd, session_id):
+    # filename stem == session_id so synthesized and normalized events agree.
+    d = tmp_path / "proj-slug"
+    d.mkdir(parents=True, exist_ok=True)
+    base = {"sessionId": session_id, "cwd": cwd, "gitBranch": "main"}
+    lines = [
+        {
+            **base,
+            "type": "user",
+            "uuid": f"{session_id}-u1",
+            "timestamp": "2026-06-19T00:00:00Z",
+            "message": {"content": "hi"},
+        },
+        {
+            **base,
+            "type": "assistant",
+            "uuid": f"{session_id}-a1",
+            "timestamp": "2026-06-19T00:00:01Z",
+            "message": {"model": "claude-opus-4-8", "content": [{"type": "text", "text": "ok"}]},
+        },
+    ]
+    f = d / f"{session_id}.jsonl"
+    f.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    return f
+
+
+def test_local_only_routed_to_catch_all(asgi_client, tmp_path):
+    # cwd is a plain temp dir (not a git repo) -> resolves local_only -> catch-all.
+    session_id = f"pytest-session-{uuid4().hex}"
+    cwd = str(tmp_path)
+    _write_local_transcript(tmp_path, cwd, session_id)
+
+    from capture.claude_code.discovery import discover_transcripts
+
+    files = discover_transcripts(str(tmp_path))
+    report = cli.process(
+        asgi_client, "http://test", files, now=10_000_000_000.0, catch_all="unsorted-local"
+    )
+    assert report.files_catch_all == 1
+    assert report.files_processed == 0
+
+    with get_connection() as conn:
+        run = conn.execute(
+            "SELECT repository_id, project_id, cwd FROM runs WHERE session_id = %s",
+            (session_id,),
+        ).fetchone()
+    assert run is not None
+    assert run["repository_id"] == "unsorted-local"
+    assert run["project_id"] == "unsorted"
+    assert run["cwd"] == cwd  # real folder preserved for later reclassification
+
+
+def test_excluded_cwd_is_skipped(asgi_client, tmp_path):
+    session_id = f"pytest-session-{uuid4().hex}"
+    cwd = f"{tmp_path}/personal-notes"
+    _write_local_transcript(tmp_path, cwd, session_id)
+
+    from capture.claude_code.discovery import discover_transcripts
+
+    files = discover_transcripts(str(tmp_path))
+    report = cli.process(
+        asgi_client,
+        "http://test",
+        files,
+        now=10_000_000_000.0,
+        catch_all="unsorted-local",
+        exclude=["personal"],
+    )
+    assert any("personal" in k for k in report.excluded)
+    assert report.files_catch_all == 0
+
+    with get_connection() as conn:
+        run = conn.execute("SELECT 1 FROM runs WHERE session_id = %s", (session_id,)).fetchone()
+    assert run is None
+
+
+def test_catch_all_unregistered_repo_raises(asgi_client):
+    import pytest
+
+    with pytest.raises(ValueError):
+        cli.process(asgi_client, "http://test", [], catch_all="does-not-exist")

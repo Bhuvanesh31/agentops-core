@@ -79,10 +79,28 @@ def process(
     files: list[Path],
     dry_run: bool = False,
     now: float | None = None,
+    catch_all: str | None = None,
+    exclude: list[str] | None = None,
 ) -> RunReport:
-    """Resolve, normalize, and submit all files. Returns a RunReport."""
+    """Resolve, normalize, and submit all files. Returns a RunReport.
+
+    ``catch_all`` is a registered repository_id; sessions whose cwd has no git
+    remote are routed there (real folder preserved in each event's cwd) instead
+    of being skipped. ``exclude`` drops sessions whose cwd contains any of the
+    given substrings (e.g. personal folders).
+    """
     now = now if now is not None else time.time()
-    registry = identity.build_registry(client.fetch_repositories(http, api_url))
+    repos = client.fetch_repositories(http, api_url)
+    registry = identity.build_registry(repos)
+    exclude = exclude or []
+
+    catch_all_ids: tuple[str, str] | None = None
+    if catch_all:
+        match = next((r for r in repos if r["repository_id"] == catch_all), None)
+        if match is None:
+            raise ValueError(f"--catch-all repository not registered: {catch_all}")
+        catch_all_ids = (match["project_id"], match["repository_id"])
+
     report = RunReport()
 
     for path in files:
@@ -92,18 +110,29 @@ def process(
             report.files_skipped += 1
             report.add_local_only(path.parent.name)
             continue
+        if any(token in cwd for token in exclude):
+            report.files_skipped += 1
+            report.add_excluded(cwd)
+            continue
 
         resolution = identity.resolve_repository(cwd, registry)
-        if resolution.status == "pending":
+        if resolution.status == "registered":
+            report.files_processed += 1
+        elif resolution.status == "pending":
             report.files_skipped += 1
             report.add_pending(resolution.canonical_remote)
             continue
-        if resolution.status == "local_only":
+        elif catch_all_ids is not None:  # local_only, routed to catch-all
+            resolution = identity.RepoResolution(
+                "registered", None, catch_all_ids[0], catch_all_ids[1]
+            )
+            report.files_catch_all += 1
+            report.add_catch_all(cwd)
+        else:  # local_only, no catch-all configured
             report.files_skipped += 1
             report.add_local_only(cwd)
             continue
 
-        report.files_processed += 1
         for event in events_for_file(path, lines, resolution, now):
             if dry_run:
                 continue
@@ -136,11 +165,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--since", type=float, default=None, help="Only files modified after this epoch time"
     )
+    parser.add_argument(
+        "--catch-all",
+        default=os.environ.get("AGENTOPS_CATCH_ALL_REPO"),
+        help="Registered repository_id to route no-remote sessions to (e.g. unsorted-local)",
+    )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=None,
+        help="Skip sessions whose cwd contains this substring (repeatable)",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
     files = discover_transcripts(args.projects_dir, only=args.only, since=args.since)
     with httpx.Client() as http:
-        report = process(http, args.api_url, files, dry_run=args.dry_run)
+        report = process(
+            http,
+            args.api_url,
+            files,
+            dry_run=args.dry_run,
+            catch_all=args.catch_all,
+            exclude=args.exclude,
+        )
     print(report.render())
     return 0

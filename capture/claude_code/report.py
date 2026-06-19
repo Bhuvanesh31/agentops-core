@@ -7,11 +7,14 @@ from dataclasses import dataclass, field
 class RunReport:
     files_processed: int = 0
     files_skipped: int = 0
+    files_catch_all: int = 0
     events_created: int = 0
     events_duplicate: int = 0
     events_error: int = 0
     pending_repos: dict[str, int] = field(default_factory=dict)
     local_only: dict[str, int] = field(default_factory=dict)
+    catch_all: dict[str, int] = field(default_factory=dict)
+    excluded: dict[str, int] = field(default_factory=dict)
 
     def add_pending(self, canonical_remote: str) -> None:
         count = self.pending_repos.get(canonical_remote, 0)
@@ -20,16 +23,35 @@ class RunReport:
     def add_local_only(self, label: str) -> None:
         self.local_only[label] = self.local_only.get(label, 0) + 1
 
+    def add_catch_all(self, cwd: str) -> None:
+        self.catch_all[cwd] = self.catch_all.get(cwd, 0) + 1
+
+    def add_excluded(self, cwd: str) -> None:
+        self.excluded[cwd] = self.excluded.get(cwd, 0) + 1
+
     def render(self) -> str:
         lines = [
             "AgentOps Claude Code capture",
             "----------------------------",
-            f"files: processed={self.files_processed} skipped={self.files_skipped}",
+            (
+                f"files: processed={self.files_processed} "
+                f"catch_all={self.files_catch_all} skipped={self.files_skipped}"
+            ),
             (
                 f"events: created={self.events_created} "
                 f"duplicate={self.events_duplicate} error={self.events_error}"
             ),
         ]
+        if self.catch_all:
+            lines.append("")
+            lines.append("Routed to catch-all (no git remote):")
+            for cwd, count in sorted(self.catch_all.items()):
+                lines.append(f"  - {cwd}  ({count} sessions)")
+        if self.excluded:
+            lines.append("")
+            lines.append("Excluded by filter:")
+            for cwd, count in sorted(self.excluded.items()):
+                lines.append(f"  - {cwd}  ({count} sessions)")
         if self.pending_repos:
             lines.append("")
             lines.append("Pending repositories (register, then re-run):")
