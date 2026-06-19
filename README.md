@@ -186,3 +186,7 @@ Ingest for real:
 Useful flags: `--only <folder-substring>`, `--since <epoch>`,
 `--projects-dir <path>`. Repositories that aren't registered yet are listed as
 "pending" — add them to `database/seed.sql`, re-apply the seed, and re-run.
+
+Sub-agent (Task/Agent-tool) sessions are captured automatically and merged into
+their parent session's run. Slice sub-agent activity with
+`raw_payload->>'isSidechain' = 'true'`, grouped by `raw_payload->>'attributionAgent'`.
