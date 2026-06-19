@@ -165,3 +165,24 @@ set -a; . ./.env; set +a
 .venv/bin/ruff format app tests
 .venv/bin/ruff check app tests
 ```
+
+## Claude Code capture
+
+Replay local Claude Code transcripts into AgentOps Core (idempotent; safe to
+re-run). The API must be running and the session's repository must be registered.
+
+Preview without writing anything:
+
+```bash
+.venv/bin/python -m capture.claude_code --api-url http://localhost:8000 --dry-run
+```
+
+Ingest for real:
+
+```bash
+.venv/bin/python -m capture.claude_code --api-url http://localhost:8000
+```
+
+Useful flags: `--only <folder-substring>`, `--since <epoch>`,
+`--projects-dir <path>`. Repositories that aren't registered yet are listed as
+"pending" — add them to `database/seed.sql`, re-apply the seed, and re-run.
