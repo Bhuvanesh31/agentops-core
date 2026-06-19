@@ -275,6 +275,37 @@ def test_events_for_file_subagent_skips_boundaries_and_uses_parent_session(tmp_p
     assert all(e["session_id"] == parent for e in events)
 
 
+def test_events_for_file_subagent_uses_path_session_when_line_lacks_session_id(tmp_path):
+    """Sub-agent events must use the path-derived parent session id even when
+    the line omits sessionId entirely (§5.2 robustness requirement)."""
+    from capture.claude_code import identity
+
+    parent = "22222222-2222-2222-2222-222222222222"
+    d = tmp_path / "slug" / parent / "subagents"
+    d.mkdir(parents=True)
+    path = d / "agent-y.jsonl"
+    # Deliberately omit sessionId — the fix must still yield the correct session_id.
+    line = {
+        "type": "assistant",
+        "agentId": "agentY",
+        "isSidechain": True,
+        "cwd": "/repo",
+        "gitBranch": "main",
+        "uuid": "sa2",
+        "timestamp": "2026-06-19T00:00:00Z",
+        "message": {"model": "claude-opus-4-8", "content": [{"type": "text", "text": "hello"}]},
+    }
+    path.write_text(json.dumps(line) + "\n")
+
+    resolution = identity.RepoResolution("registered", None, "p", "r")
+    events = cli.events_for_file(path, [line], resolution, now=10_000_000_000.0)
+
+    assert events, "expected at least one event (assistant_message)"
+    assert all(e["session_id"] == parent for e in events), (
+        f"expected all session_ids == {parent!r}, got {[e['session_id'] for e in events]}"
+    )
+
+
 def test_subagent_events_merge_into_parent_run(asgi_client, tmp_path):
     cwd = _repo_root()  # origin matches the seeded agentops-core-main repo
     parent = f"pytest-session-{uuid4().hex}"

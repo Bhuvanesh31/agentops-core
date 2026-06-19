@@ -65,14 +65,25 @@ def events_for_file(
     session_cwd = next((e["cwd"] for e in events if e.get("cwd")), None)
     session_branch = next((e["branch"] for e in events if e.get("branch")), None)
 
+    # For sub-agent files, the session id must always come from the path
+    # (path.parent.parent.name is the <parent-session-uuid> directory above
+    # "subagents/"), regardless of whether individual lines carry a sessionId.
+    # This keeps sub-agent handling consistent with top-level files, which also
+    # derive their session id from the path (path.stem) for the same reason.
+    if is_subagent_file(path):
+        parent_session_id: str | None = path.parent.parent.name
+    else:
+        parent_session_id = None
+
     ready: list[dict] = []
     for event in events:
+        session_id = parent_session_id if parent_session_id is not None else event["session_id"]
         ready.append(
             {
                 "tool": "claude-code",
                 "project_id": resolution.project_id,
                 "repository_id": resolution.repository_id,
-                "session_id": event["session_id"],
+                "session_id": session_id,
                 "event_type": event["event_type"],
                 "model": session_model,
                 "branch": session_branch,
