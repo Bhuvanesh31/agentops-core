@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+packages = ["app", "capture"]
 
 [tool.ruff]
 line-length = 100
@@ -38,5 +38,5 @@ select = ["E", "F", "I", "UP", "B"]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "capture/tests"]
 addopts = "-q"
