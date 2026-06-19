@@ -15,6 +15,11 @@ from capture.claude_code.report import RunReport
 DEFAULT_PROJECTS_DIR = "~/.claude/projects"
 
 
+def is_subagent_file(path: Path) -> bool:
+    """A transcript is a sub-agent file iff its parent dir is named 'subagents'."""
+    return path.parent.name == "subagents"
+
+
 def load_lines(path: Path) -> list[dict]:
     """Parse a JSONL transcript, skipping blank/unparseable lines."""
     lines: list[dict] = []
@@ -36,15 +41,19 @@ def events_for_file(
     if not lines:
         return []
 
-    # The transcript filename is the canonical session id; boundary lines may
-    # lack a sessionId, so derive it from the path rather than from a line.
-    session_id = path.stem
+    # Sub-agent transcripts share the parent's sessionId (carried on every
+    # line), so their normalized events attach to the parent run. The parent
+    # file owns the session boundaries, so we synthesize none here.
     events: list[dict] = []
-    events.extend(
-        normalize.synthesize_session_events(
-            session_id, lines[0], lines[-1], path.stat().st_mtime, now
+    if not is_subagent_file(path):
+        # The filename is the canonical session id; boundary lines may lack a
+        # sessionId, so derive it from the path rather than from a line.
+        session_id = path.stem
+        events.extend(
+            normalize.synthesize_session_events(
+                session_id, lines[0], lines[-1], path.stat().st_mtime, now
+            )
         )
-    )
     for line in lines:
         events.extend(normalize.normalize_line(line))
 

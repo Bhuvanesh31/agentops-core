@@ -243,3 +243,33 @@ def test_canonical_cwd_injected_when_first_line_lacks_it(tmp_path):
     assert all(e["cwd"] == "/home/me/notes" for e in events)
     started = next(e for e in events if e["event_type"] == "session_started")
     assert started["cwd"] == "/home/me/notes"
+
+
+def test_events_for_file_subagent_skips_boundaries_and_uses_parent_session(tmp_path):
+    from capture.claude_code import identity
+
+    parent = "11111111-1111-1111-1111-111111111111"
+    d = tmp_path / "slug" / parent / "subagents"
+    d.mkdir(parents=True)
+    path = d / "agent-abc.jsonl"
+    line = {
+        "type": "assistant",
+        "sessionId": parent,
+        "agentId": "agentX",
+        "isSidechain": True,
+        "cwd": "/repo",
+        "gitBranch": "main",
+        "uuid": "sa1",
+        "timestamp": "2026-06-19T00:00:00Z",
+        "message": {"model": "claude-opus-4-8", "content": [{"type": "text", "text": "hi"}]},
+    }
+    path.write_text(json.dumps(line) + "\n")
+
+    resolution = identity.RepoResolution("registered", None, "p", "r")
+    events = cli.events_for_file(path, [line], resolution, now=10_000_000_000.0)
+
+    types = [e["event_type"] for e in events]
+    assert "session_started" not in types
+    assert "session_ended" not in types
+    assert events  # the assistant_message is present
+    assert all(e["session_id"] == parent for e in events)
