@@ -146,3 +146,15 @@ def insert_run_event(
         (source_event_id,),
     ).fetchone()
     return existing["event_id"], True
+
+
+def list_repositories(conn: psycopg.Connection) -> list[dict[str, Any]]:
+    """Return active repositories for identity resolution."""
+    return conn.execute(
+        """
+        SELECT repository_id, project_id, remote_url
+        FROM repositories
+        WHERE is_active = TRUE
+        ORDER BY repository_id
+        """
+    ).fetchall()
