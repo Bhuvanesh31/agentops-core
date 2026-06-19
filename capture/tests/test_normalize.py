@@ -96,8 +96,49 @@ def test_noise_types_are_dropped():
         "ai-title",
         "system",
         "file-history-snapshot",
+        "last-prompt",
+        "bridge-session",
     ]:
         assert normalize_line({**BASE, "type": noise, "uuid": "n"}) == []
+
+
+def test_assistant_unknown_tool_yields_tool_use():
+    line = {
+        **BASE,
+        "type": "assistant",
+        "uuid": "a4",
+        "message": {
+            "model": "claude-opus-4-8",
+            "content": [
+                {"type": "tool_use", "id": "toolu_3", "name": "WebSearch", "input": {"q": "x"}}
+            ],
+        },
+    }
+    events = normalize_line(line)
+    assert events[1]["event_type"] == "tool_use"
+    assert events[1]["source_event_id"] == "toolu_3"
+
+
+def test_assistant_write_tool_yields_file_edit():
+    line = {
+        **BASE,
+        "type": "assistant",
+        "uuid": "a5",
+        "message": {
+            "model": "claude-opus-4-8",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_4",
+                    "name": "Write",
+                    "input": {"file_path": "/repo/y.py"},
+                }
+            ],
+        },
+    }
+    events = normalize_line(line)
+    assert events[1]["event_type"] == "file_edit"
+    assert events[1]["files_touched"] == ["/repo/y.py"]
 
 
 def test_secret_in_user_prompt_is_redacted():

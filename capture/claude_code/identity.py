@@ -36,7 +36,7 @@ def canonicalize_remote(url: str | None) -> str | None:
     return f"{host.lower()}{slash}{rest}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class RepoResolution:
     status: str  # "registered" | "pending" | "local_only"
     canonical_remote: str | None
@@ -65,8 +65,10 @@ def build_registry(repositories: list[dict]) -> dict[str, tuple[str, str]]:
     registry: dict[str, tuple[str, str]] = {}
     for repo in repositories:
         canon = canonicalize_remote(repo.get("remote_url"))
-        if canon:
-            registry[canon] = (repo["project_id"], repo["repository_id"])
+        project_id = repo.get("project_id")
+        repository_id = repo.get("repository_id")
+        if canon and project_id and repository_id:
+            registry[canon] = (project_id, repository_id)
     return registry
 
 

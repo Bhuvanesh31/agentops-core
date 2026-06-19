@@ -13,7 +13,7 @@ def test_counts_and_render():
     assert "created=5" in text
     assert "duplicate=3" in text
     assert "github.com/acme/unknown" in text
-    assert "2" in text  # pending count for the repo seen twice
+    assert "(2 sessions)" in text
     assert "/home/me/scratch" in text
 
 
