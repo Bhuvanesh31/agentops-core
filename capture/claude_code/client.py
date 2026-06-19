@@ -36,7 +36,7 @@ def post_event(
             sleep(backoff * (2**attempt))
             continue
         if response.status_code in (200, 201):
-            return response.json().get("status", "unknown"), response.status_code
+            return response.json().get("status", "error"), response.status_code
         if response.status_code >= 500:
             last_detail = f"server {response.status_code}"
             sleep(backoff * (2**attempt))

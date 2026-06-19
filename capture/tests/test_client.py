@@ -73,3 +73,18 @@ def test_post_event_raises_after_exhaustion():
     with _client(handler) as http:
         with pytest.raises(RuntimeError):
             post_event(http, "http://test", {"a": 1}, retries=2, sleep=lambda _: None)
+
+
+def test_post_event_retries_transport_error_then_succeeds():
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] < 2:
+            raise httpx.ConnectError("simulated transport failure")
+        return httpx.Response(201, json={"status": "created"})
+
+    with _client(handler) as http:
+        status, code = post_event(http, "http://test", {"a": 1}, sleep=lambda _: None)
+    assert status == "created"
+    assert calls["n"] == 2
