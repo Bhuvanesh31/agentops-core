@@ -48,8 +48,13 @@ def events_for_file(
     for line in lines:
         events.extend(normalize.normalize_line(line))
 
-    # Determine a session-wide model so whichever event creates the run carries it.
+    # Determine session-wide model/cwd/branch so whichever event creates the run
+    # carries them. Boundary lines (e.g. a leading metadata line) can lack cwd,
+    # so the run would otherwise be created with a null cwd — which destroys the
+    # catch-all reclassification signal. Pick the first non-empty value seen.
     session_model = next((e["model"] for e in events if e.get("model")), None)
+    session_cwd = next((e["cwd"] for e in events if e.get("cwd")), None)
+    session_branch = next((e["branch"] for e in events if e.get("branch")), None)
 
     ready: list[dict] = []
     for event in events:
@@ -61,8 +66,8 @@ def events_for_file(
                 "session_id": event["session_id"],
                 "event_type": event["event_type"],
                 "model": session_model,
-                "branch": event["branch"],
-                "cwd": event["cwd"],
+                "branch": session_branch,
+                "cwd": session_cwd,
                 "intent": None,
                 "files_touched": event["files_touched"],
                 "occurred_at": event["occurred_at"],

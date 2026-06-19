@@ -210,3 +210,36 @@ def test_catch_all_unregistered_repo_raises(asgi_client):
 
     with pytest.raises(ValueError):
         cli.process(asgi_client, "http://test", [], catch_all="does-not-exist")
+
+
+def test_canonical_cwd_injected_when_first_line_lacks_it(tmp_path):
+    # Regression: real transcripts can start with a metadata line that has no
+    # cwd; the run is created by session_started, so without injection it would
+    # land with a null cwd and lose the catch-all reclassification signal.
+    from capture.claude_code import identity
+
+    d = tmp_path / "slug"
+    d.mkdir()
+    session_id = f"pytest-session-{uuid4().hex}"
+    lines = [
+        {"type": "summary", "sessionId": session_id, "timestamp": "2026-06-19T00:00:00Z"},
+        {
+            "type": "user",
+            "sessionId": session_id,
+            "cwd": "/home/me/notes",
+            "gitBranch": "main",
+            "uuid": f"{session_id}-u1",
+            "timestamp": "2026-06-19T00:00:01Z",
+            "message": {"content": "hi"},
+        },
+    ]
+    path = d / f"{session_id}.jsonl"
+    path.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+
+    resolution = identity.RepoResolution("registered", None, "unsorted", "unsorted-local")
+    events = cli.events_for_file(path, lines, resolution, now=10_000_000_000.0)
+
+    assert events  # at least session_started + user_prompt (+ session_ended)
+    assert all(e["cwd"] == "/home/me/notes" for e in events)
+    started = next(e for e in events if e["event_type"] == "session_started")
+    assert started["cwd"] == "/home/me/notes"
