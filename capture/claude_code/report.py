@@ -8,6 +8,7 @@ class RunReport:
     files_processed: int = 0
     files_skipped: int = 0
     files_catch_all: int = 0
+    sub_agent_files: int = 0
     events_created: int = 0
     events_duplicate: int = 0
     events_error: int = 0
@@ -35,6 +36,7 @@ class RunReport:
             "----------------------------",
             (
                 f"files: processed={self.files_processed} "
+                f"sub_agents={self.sub_agent_files} "
                 f"catch_all={self.files_catch_all} skipped={self.files_skipped}"
             ),
             (

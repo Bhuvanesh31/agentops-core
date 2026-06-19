@@ -23,3 +23,11 @@ def test_pending_counts_accumulate():
     r.add_pending("a")
     r.add_pending("b")
     assert r.pending_repos == {"a": 2, "b": 1}
+
+
+def test_render_shows_sub_agent_count():
+    r = RunReport()
+    r.files_processed = 2
+    r.sub_agent_files = 5
+    text = r.render()
+    assert "sub_agents=5" in text

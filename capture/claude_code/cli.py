@@ -129,23 +129,31 @@ def process(
             report.add_excluded(cwd)
             continue
 
+        is_sub = is_subagent_file(path)
         resolution = identity.resolve_repository(cwd, registry)
-        if resolution.status == "registered":
-            report.files_processed += 1
-        elif resolution.status == "pending":
+        if resolution.status == "pending":
             report.files_skipped += 1
             report.add_pending(resolution.canonical_remote)
             continue
-        elif catch_all_ids is not None:  # local_only, routed to catch-all
+
+        routed_catch_all = False
+        if resolution.status == "local_only":
+            if catch_all_ids is None:
+                report.files_skipped += 1
+                report.add_local_only(cwd)
+                continue
             resolution = identity.RepoResolution(
                 "registered", None, catch_all_ids[0], catch_all_ids[1]
             )
+            routed_catch_all = True
+
+        if is_sub:
+            report.sub_agent_files += 1
+        elif routed_catch_all:
             report.files_catch_all += 1
             report.add_catch_all(cwd)
-        else:  # local_only, no catch-all configured
-            report.files_skipped += 1
-            report.add_local_only(cwd)
-            continue
+        else:
+            report.files_processed += 1
 
         for event in events_for_file(path, lines, resolution, now):
             if dry_run:

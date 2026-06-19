@@ -273,3 +273,71 @@ def test_events_for_file_subagent_skips_boundaries_and_uses_parent_session(tmp_p
     assert "session_ended" not in types
     assert events  # the assistant_message is present
     assert all(e["session_id"] == parent for e in events)
+
+
+def test_subagent_events_merge_into_parent_run(asgi_client, tmp_path):
+    cwd = _repo_root()  # origin matches the seeded agentops-core-main repo
+    parent = f"pytest-session-{uuid4().hex}"
+    slug = "-".join(cwd.strip("/").split("/"))
+
+    pdir = tmp_path / slug
+    pdir.mkdir(parents=True)
+    parent_lines = [
+        {
+            "type": "user",
+            "sessionId": parent,
+            "cwd": cwd,
+            "gitBranch": "main",
+            "uuid": f"{parent}-u",
+            "timestamp": "2026-06-19T00:00:00Z",
+            "message": {"content": "go"},
+        },
+        {
+            "type": "assistant",
+            "sessionId": parent,
+            "cwd": cwd,
+            "gitBranch": "main",
+            "uuid": f"{parent}-a",
+            "timestamp": "2026-06-19T00:00:01Z",
+            "message": {"model": "claude-opus-4-8", "content": [{"type": "text", "text": "ok"}]},
+        },
+    ]
+    (pdir / f"{parent}.jsonl").write_text("\n".join(json.dumps(x) for x in parent_lines) + "\n")
+
+    sdir = pdir / parent / "subagents"
+    sdir.mkdir(parents=True)
+    sub_line = {
+        "type": "assistant",
+        "sessionId": parent,
+        "agentId": "agentX",
+        "isSidechain": True,
+        "attributionAgent": "Explore",
+        "cwd": cwd,
+        "gitBranch": "main",
+        "uuid": f"{parent}-sa",
+        "timestamp": "2026-06-19T00:00:02Z",
+        "message": {"model": "claude-opus-4-8", "content": [{"type": "text", "text": "searched"}]},
+    }
+    (sdir / "agent-x.jsonl").write_text(json.dumps(sub_line) + "\n")
+
+    from capture.claude_code.discovery import discover_transcripts
+
+    files = discover_transcripts(str(tmp_path))
+    report = cli.process(asgi_client, "http://test", files, now=10_000_000_000.0)
+
+    assert report.sub_agent_files == 1
+    assert report.events_error == 0
+
+    with get_connection() as conn:
+        runs = conn.execute("SELECT run_id FROM runs WHERE session_id = %s", (parent,)).fetchall()
+        assert len(runs) == 1  # parent + sub-agent share ONE run
+        sidechain = conn.execute(
+            "SELECT count(*) AS c FROM run_events e JOIN runs r ON e.run_id = r.run_id "
+            "WHERE r.session_id = %s AND e.raw_payload->>'isSidechain' = 'true'",
+            (parent,),
+        ).fetchone()["c"]
+        assert sidechain >= 1
+
+    # Idempotent re-run.
+    report2 = cli.process(asgi_client, "http://test", files, now=10_000_000_000.0)
+    assert report2.events_created == 0
