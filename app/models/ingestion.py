@@ -158,3 +158,44 @@ def list_repositories(conn: psycopg.Connection) -> list[dict[str, Any]]:
         ORDER BY repository_id
         """
     ).fetchall()
+
+
+def upsert_repository(
+    conn: psycopg.Connection,
+    *,
+    repository_id: str,
+    project_id: str,
+    repository_name: str,
+    remote_url: str | None,
+    local_path: str | None,
+    default_branch: str,
+    is_active: bool,
+) -> dict[str, Any]:
+    """Insert or update a repository; return {repository_id, project_id, remote_url}."""
+    return conn.execute(
+        """
+        INSERT INTO repositories (
+            repository_id, project_id, repository_name,
+            remote_url, local_path, default_branch, is_active
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (repository_id) DO UPDATE SET
+            project_id      = EXCLUDED.project_id,
+            repository_name = EXCLUDED.repository_name,
+            remote_url      = EXCLUDED.remote_url,
+            local_path      = EXCLUDED.local_path,
+            default_branch  = EXCLUDED.default_branch,
+            is_active       = EXCLUDED.is_active,
+            updated_at      = NOW()
+        RETURNING repository_id, project_id, remote_url
+        """,
+        (
+            repository_id,
+            project_id,
+            repository_name,
+            remote_url,
+            local_path,
+            default_branch,
+            is_active,
+        ),
+    ).fetchone()
