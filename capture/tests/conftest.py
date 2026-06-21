@@ -25,5 +25,6 @@ def cleanup_pytest_rows() -> Iterator[None]:
         with get_connection() as conn:
             conn.execute("DELETE FROM runs WHERE session_id LIKE 'pytest-%'")
             conn.execute("DELETE FROM run_events WHERE source_event_id LIKE 'pytest-%'")
+            conn.execute("DELETE FROM repositories WHERE repository_id LIKE 'pytest-%'")
     except Exception:
         pass
