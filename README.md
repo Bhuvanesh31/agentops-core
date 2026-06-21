@@ -209,4 +209,4 @@ events' `occurred_at`: each ingest folds the event time into the run's bounds
 (`started_at = min`, `ended_at = max`), while `created_at`/`updated_at` remain
 write-time bookkeeping. To recompute the bounds for runs already stored (e.g.
 after importing historical events), run the host-local command:
-`python -m app.maintenance`. It is idempotent — a second run updates 0 rows.
+`python -m app.maintenance backfill-run-times`. It is idempotent — a second run updates 0 rows.

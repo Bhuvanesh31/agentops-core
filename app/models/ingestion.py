@@ -198,6 +198,45 @@ def backfill_run_time_bounds(conn: psycopg.Connection) -> int:
     return result.rowcount
 
 
+def backfill_usage_metrics(conn: psycopg.Connection) -> int:
+    """Aggregate per-run token usage from run_events into usage_metrics.
+
+    Sums token counts from assistant_message events' raw_payload.message.usage,
+    counts iterations (assistant_message) and tool calls (tool_use/command_run/
+    file_edit). cost_usd/cost_source are left untouched on conflict so a future
+    'reported' cost is never clobbered. Idempotent in result. Returns rows written.
+    """
+    result = conn.execute(
+        """
+        INSERT INTO usage_metrics (
+            run_id, input_tokens, output_tokens, cached_input_tokens,
+            iteration_count, tool_calls_count, cost_source
+        )
+        SELECT
+            run_id,
+            SUM((raw_payload->'message'->'usage'->>'input_tokens')::bigint)
+                FILTER (WHERE event_type = 'assistant_message'),
+            SUM((raw_payload->'message'->'usage'->>'output_tokens')::bigint)
+                FILTER (WHERE event_type = 'assistant_message'),
+            SUM((raw_payload->'message'->'usage'->>'cache_read_input_tokens')::bigint)
+                FILTER (WHERE event_type = 'assistant_message'),
+            COUNT(*) FILTER (WHERE event_type = 'assistant_message'),
+            COUNT(*) FILTER (WHERE event_type IN ('tool_use', 'command_run', 'file_edit')),
+            'unavailable'
+        FROM run_events
+        GROUP BY run_id
+        ON CONFLICT (run_id) DO UPDATE SET
+            input_tokens        = EXCLUDED.input_tokens,
+            output_tokens       = EXCLUDED.output_tokens,
+            cached_input_tokens = EXCLUDED.cached_input_tokens,
+            iteration_count     = EXCLUDED.iteration_count,
+            tool_calls_count    = EXCLUDED.tool_calls_count,
+            updated_at          = NOW()
+        """
+    )
+    return result.rowcount
+
+
 def list_repositories(conn: psycopg.Connection) -> list[dict[str, Any]]:
     """Return active repositories for identity resolution."""
     return conn.execute(
