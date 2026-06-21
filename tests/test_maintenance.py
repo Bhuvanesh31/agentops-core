@@ -48,15 +48,14 @@ def test_backfill_sets_min_and_max_from_events():
             "UPDATE runs SET started_at = NOW(), ended_at = NULL WHERE run_id = %s",
             (run_id,),
         )
-    with get_connection() as conn:
         changed = ingestion.backfill_run_time_bounds(conn)
-    assert changed >= 1
-    with get_connection() as conn:
+        assert changed >= 1
         row = conn.execute(
             "SELECT started_at, ended_at FROM runs WHERE run_id = %s", (run_id,)
         ).fetchone()
-    assert row["started_at"] == t_early
-    assert row["ended_at"] == t_late
+        assert row["started_at"] == t_early
+        assert row["ended_at"] == t_late
+        conn.rollback()
 
 
 def test_backfill_is_idempotent():
@@ -68,18 +67,15 @@ def test_backfill_is_idempotent():
             "UPDATE runs SET started_at = NOW(), ended_at = NULL WHERE run_id = %s",
             (run_id,),
         )
-    with get_connection() as conn:
         first = ingestion.backfill_run_time_bounds(conn)
-    with get_connection() as conn:
+        assert first >= 1
         _ = ingestion.backfill_run_time_bounds(conn)
-    assert first >= 1
-    # Second pass changes nothing for the already-correct row.
-    with get_connection() as conn:
+        # Second pass: assert our target row is still correct (stable).
         row = conn.execute(
             "SELECT started_at, ended_at FROM runs WHERE run_id = %s", (run_id,)
         ).fetchone()
-    assert row["started_at"] == t and row["ended_at"] == t
-    # second may be 0 globally only if no other run needed fixing; assert our row stable instead.
+        assert row["started_at"] == t and row["ended_at"] == t
+        conn.rollback()
 
 
 def test_main_runs_and_returns_zero(capsys):

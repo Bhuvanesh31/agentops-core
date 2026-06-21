@@ -6,7 +6,7 @@ from app.database import get_connection
 from tests.conftest import make_event
 
 
-def _run_bounds(run_id: str) -> tuple:
+def _run_bounds(run_id: str) -> tuple[datetime | None, datetime | None]:
     with get_connection() as conn:
         row = conn.execute(
             "SELECT started_at, ended_at FROM runs WHERE run_id = %s", (run_id,)
@@ -34,6 +34,7 @@ def test_started_and_ended_track_event_times(client):
             source_event_id=f"pytest-event-{uuid4().hex}",
         ),
     )
+    assert r1.status_code == 201
     run_id = r1.json()["run_id"]
     started, ended = _run_bounds(run_id)
     assert started == datetime(2026, 5, 1, 10, 0, tzinfo=UTC)
