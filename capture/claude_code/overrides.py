@@ -17,11 +17,12 @@ def load_overrides(path: Path | str | None = None) -> dict[str, str]:
     p = Path(path) if path is not None else DEFAULT_OVERRIDES_PATH
     if not p.exists():
         return {}
-    data = tomllib.loads(p.read_text())
+    with p.open("rb") as f:
+        data = tomllib.load(f)
     return dict(data.get("overrides", {}))
 
 
-def match_override(cwd: str, mapping: dict):
+def match_override[V](cwd: str, mapping: dict[str, V]) -> V | None:
     """Longest-prefix match of cwd against mapping keys; return the value or None.
 
     A key matches when cwd equals it or is a path-segment child of it
