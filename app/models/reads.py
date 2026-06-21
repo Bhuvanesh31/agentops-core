@@ -38,3 +38,30 @@ def list_runs(
         "ORDER BY started_at DESC NULLS LAST LIMIT %(limit)s OFFSET %(offset)s",
         params,
     ).fetchall()
+
+
+def get_run(conn: psycopg.Connection, run_id: str) -> dict[str, Any] | None:
+    """Return one run_overview row by run_id, or None if not found."""
+    return conn.execute("SELECT * FROM run_overview WHERE run_id = %s", (run_id,)).fetchone()
+
+
+def project_overview(conn: psycopg.Connection) -> list[dict[str, Any]]:
+    """Per-project rollup: run count, token totals, and activity time range."""
+    return conn.execute(
+        """
+        SELECT
+            p.project_id,
+            p.project_name,
+            COUNT(r.run_id) AS run_count,
+            SUM(u.input_tokens) AS input_tokens,
+            SUM(u.output_tokens) AS output_tokens,
+            SUM(u.cached_input_tokens) AS cached_input_tokens,
+            MIN(r.started_at) AS earliest,
+            MAX(COALESCE(r.ended_at, r.started_at)) AS latest_activity
+        FROM projects p
+        JOIN runs r ON r.project_id = p.project_id
+        LEFT JOIN usage_metrics u ON u.run_id = r.run_id
+        GROUP BY p.project_id, p.project_name
+        ORDER BY run_count DESC
+        """
+    ).fetchall()

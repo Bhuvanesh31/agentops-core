@@ -1,9 +1,9 @@
 import psycopg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import db_dependency
 from app.models import reads
-from app.schemas.reads import RunListItem
+from app.schemas.reads import ProjectOverview, RunDetail, RunListItem
 
 # NOTE: do not `from fastapi import status` here — the GET /runs `status` query
 # param would shadow it. Use literal HTTP codes where needed (Task 4).
@@ -29,3 +29,16 @@ def get_runs(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/runs/{run_id}", response_model=RunDetail)
+def get_run(run_id: str, conn: psycopg.Connection = Depends(db_dependency)) -> dict:
+    row = reads.get_run(conn, run_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Unknown run_id: {run_id}")
+    return row
+
+
+@router.get("/overview", response_model=list[ProjectOverview])
+def get_overview(conn: psycopg.Connection = Depends(db_dependency)) -> list[dict]:
+    return reads.project_overview(conn)

@@ -25,3 +25,23 @@ class RunListItem(BaseModel):
     cost_source: str | None = None
     iteration_count: int | None = None
     tool_calls_count: int | None = None
+
+
+class RunDetail(RunListItem):
+    branch: str | None = None
+    intent: str | None = None
+    summary: str | None = None
+    human: str | None = None
+
+
+class ProjectOverview(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    project_id: str
+    project_name: str | None = None
+    run_count: int
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cached_input_tokens: int | None = None
+    earliest: datetime | None = None
+    latest_activity: datetime | None = None
