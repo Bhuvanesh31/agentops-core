@@ -201,3 +201,12 @@ deleted folders) are mapped by `capture/claude_code/cwd_overrides.toml`
 (`cwd -> repository_id`), which the capture adapter consults before the
 catch-all. To re-point already-stored catch-all runs, run the host-local
 command: `python -m capture.claude_code.reclassify`.
+
+### Run timestamps
+
+`runs.started_at` and `runs.ended_at` reflect real session time, derived from
+events' `occurred_at`: each ingest folds the event time into the run's bounds
+(`started_at = min`, `ended_at = max`), while `created_at`/`updated_at` remain
+write-time bookkeeping. To recompute the bounds for runs already stored (e.g.
+after importing historical events), run the host-local command:
+`python -m app.maintenance`. It is idempotent — a second run updates 0 rows.
