@@ -43,12 +43,16 @@ def test_create_repository_idempotent_upsert(client):
         "repository_id": "pytest-repo-upsert",
         "project_id": "agentops-core",
         "repository_name": "First Name",
+        "remote_url": "https://github.com/acme/first.git",
     }
     first = client.post("/repositories", json=body)
     assert first.status_code == 201
     body["repository_name"] = "Second Name"
+    body["remote_url"] = "https://github.com/acme/second.git"
     second = client.post("/repositories", json=body)
     assert second.status_code == 200
+    # Proves the ON CONFLICT UPDATE path wrote the new value, not just avoided a duplicate.
+    assert second.json()["remote_url"] == "https://github.com/acme/second.git"
     rows = [
         r for r in client.get("/repositories").json() if r["repository_id"] == "pytest-repo-upsert"
     ]

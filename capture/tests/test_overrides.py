@@ -1,3 +1,5 @@
+"""Unit tests for the cwd override map loader and longest-prefix matcher."""
+
 from capture.claude_code.overrides import load_overrides, match_override
 
 

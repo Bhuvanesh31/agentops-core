@@ -28,14 +28,16 @@ def reclassify(conn: psycopg.Connection, overrides: dict[str, str]) -> dict[str,
         repo = ingestion.get_repository(conn, repository_id)
         if repo is None:
             continue
+        # Escape LIKE metacharacters so real cwds containing `_` or `%` match literally.
+        like_prefix = cwd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "/%"
         result = conn.execute(
             """
             UPDATE runs
             SET repository_id = %s, project_id = %s, updated_at = NOW()
             WHERE repository_id = %s
-              AND (cwd = %s OR cwd LIKE %s)
+              AND (cwd = %s OR cwd LIKE %s ESCAPE '\\')
             """,
-            (repository_id, repo["project_id"], CATCH_ALL_REPOSITORY_ID, cwd, cwd + "/%"),
+            (repository_id, repo["project_id"], CATCH_ALL_REPOSITORY_ID, cwd, like_prefix),
         )
         moved[repository_id] = moved.get(repository_id, 0) + result.rowcount
     return moved
