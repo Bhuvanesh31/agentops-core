@@ -148,6 +148,56 @@ def insert_run_event(
     return existing["event_id"], True
 
 
+def update_run_time_bounds(
+    conn: psycopg.Connection, *, run_id: UUID, occurred_at: datetime
+) -> None:
+    """Fold one event's occurred_at into the run's started_at/ended_at.
+
+    started_at takes the earliest time seen (LEAST against the NOW() default on a
+    fresh run); ended_at takes the latest (COALESCE seeds it from NULL on the
+    first event, GREATEST extends it thereafter).
+    """
+    conn.execute(
+        """
+        UPDATE runs
+        SET started_at = LEAST(started_at, %(occ)s),
+            ended_at   = GREATEST(COALESCE(ended_at, %(occ)s), %(occ)s),
+            updated_at = NOW()
+        WHERE run_id = %(run_id)s
+        """,
+        {"occ": occurred_at, "run_id": run_id},
+    )
+
+
+def backfill_run_time_bounds(conn: psycopg.Connection) -> int:
+    """Recompute started_at/ended_at for all runs from their events.
+
+    Uses MIN/MAX of run_events.occurred_at (ignoring NULLs). The IS DISTINCT FROM
+    guard updates only rows whose bounds actually change, so re-runs are no-ops.
+    Returns the number of rows updated.
+    """
+    result = conn.execute(
+        """
+        UPDATE runs r
+        SET started_at = sub.min_occ,
+            ended_at   = sub.max_occ,
+            updated_at = NOW()
+        FROM (
+            SELECT run_id,
+                   MIN(occurred_at) AS min_occ,
+                   MAX(occurred_at) AS max_occ
+            FROM run_events
+            WHERE occurred_at IS NOT NULL
+            GROUP BY run_id
+        ) sub
+        WHERE r.run_id = sub.run_id
+          AND (r.started_at IS DISTINCT FROM sub.min_occ
+               OR r.ended_at IS DISTINCT FROM sub.max_occ)
+        """
+    )
+    return result.rowcount
+
+
 def list_repositories(conn: psycopg.Connection) -> list[dict[str, Any]]:
     """Return active repositories for identity resolution."""
     return conn.execute(
