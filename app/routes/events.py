@@ -81,6 +81,9 @@ def ingest_event(
         occurred_at=event.occurred_at,
     )
 
+    if not is_duplicate and event.occurred_at is not None:
+        ingestion.update_run_time_bounds(conn, run_id=run_id, occurred_at=event.occurred_at)
+
     response.status_code = status.HTTP_200_OK if is_duplicate else status.HTTP_201_CREATED
 
     return EventIngestResponse(

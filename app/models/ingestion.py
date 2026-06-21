@@ -148,6 +148,27 @@ def insert_run_event(
     return existing["event_id"], True
 
 
+def update_run_time_bounds(
+    conn: psycopg.Connection, *, run_id: UUID, occurred_at: datetime
+) -> None:
+    """Fold one event's occurred_at into the run's started_at/ended_at.
+
+    started_at takes the earliest time seen (LEAST against the NOW() default on a
+    fresh run); ended_at takes the latest (COALESCE seeds it from NULL on the
+    first event, GREATEST extends it thereafter).
+    """
+    conn.execute(
+        """
+        UPDATE runs
+        SET started_at = LEAST(started_at, %(occ)s),
+            ended_at   = GREATEST(COALESCE(ended_at, %(occ)s), %(occ)s),
+            updated_at = NOW()
+        WHERE run_id = %(run_id)s
+        """,
+        {"occ": occurred_at, "run_id": run_id},
+    )
+
+
 def list_repositories(conn: psycopg.Connection) -> list[dict[str, Any]]:
     """Return active repositories for identity resolution."""
     return conn.execute(
