@@ -237,6 +237,53 @@ def backfill_usage_metrics(conn: psycopg.Connection) -> int:
     return result.rowcount
 
 
+def record_event_usage(
+    conn: psycopg.Connection, *, run_id: UUID, event_type: str, usage: dict | None
+) -> None:
+    """Incrementally fold one event's usage into the run's usage_metrics row.
+
+    assistant_message events with a usage block add token counts + 1 iteration;
+    tool_use/command_run/file_edit events add 1 tool call; other events are
+    ignored. Token columns stay NULL until a usage event contributes.
+    """
+    if event_type == "assistant_message" and usage:
+        conn.execute(
+            """
+            INSERT INTO usage_metrics (
+                run_id, input_tokens, output_tokens, cached_input_tokens,
+                iteration_count, cost_source
+            )
+            VALUES (%(run_id)s, %(inp)s, %(out)s, %(cache)s, 1, 'unavailable')
+            ON CONFLICT (run_id) DO UPDATE SET
+                input_tokens = COALESCE(usage_metrics.input_tokens, 0)
+                             + COALESCE(EXCLUDED.input_tokens, 0),
+                output_tokens = COALESCE(usage_metrics.output_tokens, 0)
+                              + COALESCE(EXCLUDED.output_tokens, 0),
+                cached_input_tokens = COALESCE(usage_metrics.cached_input_tokens, 0)
+                                    + COALESCE(EXCLUDED.cached_input_tokens, 0),
+                iteration_count = COALESCE(usage_metrics.iteration_count, 0) + 1,
+                updated_at = NOW()
+            """,
+            {
+                "run_id": run_id,
+                "inp": usage.get("input_tokens"),
+                "out": usage.get("output_tokens"),
+                "cache": usage.get("cache_read_input_tokens"),
+            },
+        )
+    elif event_type in ("tool_use", "command_run", "file_edit"):
+        conn.execute(
+            """
+            INSERT INTO usage_metrics (run_id, tool_calls_count, cost_source)
+            VALUES (%(run_id)s, 1, 'unavailable')
+            ON CONFLICT (run_id) DO UPDATE SET
+                tool_calls_count = COALESCE(usage_metrics.tool_calls_count, 0) + 1,
+                updated_at = NOW()
+            """,
+            {"run_id": run_id},
+        )
+
+
 def list_repositories(conn: psycopg.Connection) -> list[dict[str, Any]]:
     """Return active repositories for identity resolution."""
     return conn.execute(

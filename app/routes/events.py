@@ -84,6 +84,15 @@ def ingest_event(
     if not is_duplicate and event.occurred_at is not None:
         ingestion.update_run_time_bounds(conn, run_id=run_id, occurred_at=event.occurred_at)
 
+    if not is_duplicate:
+        usage = None
+        payload = event.raw_payload
+        if isinstance(payload, dict):
+            message = payload.get("message")
+            if isinstance(message, dict) and isinstance(message.get("usage"), dict):
+                usage = message["usage"]
+        ingestion.record_event_usage(conn, run_id=run_id, event_type=event.event_type, usage=usage)
+
     response.status_code = status.HTTP_200_OK if is_duplicate else status.HTTP_201_CREATED
 
     return EventIngestResponse(
