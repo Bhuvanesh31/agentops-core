@@ -190,3 +190,14 @@ Useful flags: `--only <folder-substring>`, `--since <epoch>`,
 Sub-agent (Task/Agent-tool) sessions are captured automatically and merged into
 their parent session's run. Slice sub-agent activity with
 `raw_payload->>'isSidechain' = 'true'`, grouped by `raw_payload->>'attributionAgent'`.
+
+### Repository registration & reclassification
+
+Register a repository (so its sessions attribute to a real project) with
+`POST /repositories` (`repository_id`, `project_id`, `repository_name`, and
+optional `remote_url` / `local_path`). Sessions resolve to a repository by their
+canonical git remote; sessions whose recorded cwd has no remote (moved or
+deleted folders) are mapped by `capture/claude_code/cwd_overrides.toml`
+(`cwd -> repository_id`), which the capture adapter consults before the
+catch-all. To re-point already-stored catch-all runs, run the host-local
+command: `python -m capture.claude_code.reclassify`.
