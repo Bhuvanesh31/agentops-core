@@ -165,3 +165,39 @@ set -a; . ./.env; set +a
 .venv/bin/ruff format app tests
 .venv/bin/ruff check app tests
 ```
+
+## Claude Code capture
+
+Replay local Claude Code transcripts into AgentOps Core (idempotent; safe to
+re-run). The API must be running and the session's repository must be registered.
+
+Preview without writing anything:
+
+```bash
+.venv/bin/python -m capture.claude_code --api-url http://localhost:8000 --dry-run
+```
+
+Ingest for real:
+
+```bash
+.venv/bin/python -m capture.claude_code --api-url http://localhost:8000
+```
+
+Useful flags: `--only <folder-substring>`, `--since <epoch>`,
+`--projects-dir <path>`. Repositories that aren't registered yet are listed as
+"pending" — add them to `database/seed.sql`, re-apply the seed, and re-run.
+
+Sub-agent (Task/Agent-tool) sessions are captured automatically and merged into
+their parent session's run. Slice sub-agent activity with
+`raw_payload->>'isSidechain' = 'true'`, grouped by `raw_payload->>'attributionAgent'`.
+
+### Repository registration & reclassification
+
+Register a repository (so its sessions attribute to a real project) with
+`POST /repositories` (`repository_id`, `project_id`, `repository_name`, and
+optional `remote_url` / `local_path`). Sessions resolve to a repository by their
+canonical git remote; sessions whose recorded cwd has no remote (moved or
+deleted folders) are mapped by `capture/claude_code/cwd_overrides.toml`
+(`cwd -> repository_id`), which the capture adapter consults before the
+catch-all. To re-point already-stored catch-all runs, run the host-local
+command: `python -m capture.claude_code.reclassify`.

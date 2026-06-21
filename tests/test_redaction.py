@@ -39,6 +39,29 @@ def test_clean_payload_is_unchanged():
     assert redacted == payload
 
 
+def test_numeric_token_counts_are_not_redacted():
+    # Regression: keys like input_tokens/output_tokens contain the substring
+    # "token" but hold integer counts, not secrets. They must survive so token
+    # usage stays available for cost analysis. String secrets under sensitive
+    # keys must still be redacted.
+    payload = {
+        "usage": {
+            "input_tokens": 1234,
+            "output_tokens": 56,
+            "cache_read_input_tokens": 0,
+            "cache_creation": {"ephemeral_5m_input_tokens": 7},
+        },
+        "api_token": "sk-ant-secretvaluexxxxxxxxxxxx",
+    }
+    redacted, status = redact_payload(payload)
+    assert status == "redacted"
+    assert redacted["usage"]["input_tokens"] == 1234
+    assert redacted["usage"]["output_tokens"] == 56
+    assert redacted["usage"]["cache_read_input_tokens"] == 0
+    assert redacted["usage"]["cache_creation"]["ephemeral_5m_input_tokens"] == 7
+    assert redacted["api_token"] == REDACTED
+
+
 def test_ingested_payload_is_redacted_in_database(client):
     source_event_id = f"pytest-event-{uuid4().hex}"
     secret = "sk-ant-api03-zzzyyyxxxwwwvvvuuutttsss"

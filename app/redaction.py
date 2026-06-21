@@ -76,7 +76,12 @@ def _redact(value: Any) -> tuple[Any, bool]:
         changed = False
         result: dict[str, Any] = {}
         for key, item in value.items():
-            if _key_is_sensitive(str(key)) and item not in (None, "", {}, []):
+            # Only string values are secrets. Numbers (e.g. input_tokens,
+            # output_tokens) share substrings with sensitive-key hints but are
+            # never credentials, so wholesale-redacting them would destroy
+            # legitimate telemetry. Non-string values are recursed instead, so
+            # secret-shaped strings nested inside are still caught.
+            if _key_is_sensitive(str(key)) and isinstance(item, str) and item:
                 result[key] = REDACTED
                 changed = True
             else:

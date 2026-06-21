@@ -1,0 +1,9 @@
+# cwd -> repository_id for sessions whose recorded cwd has no resolvable git
+# remote (moved/deleted folders). Consumed by the capture adapter and the
+# reclassify command. Paths are host-specific (like .env / repositories.local_path).
+[overrides]
+"/home/bhuvanesh/leadle_master_claude" = "leadle-os"
+"/home/bhuvanesh/AI_Native_Workspace/30-leadle-systems/leadle_gtm_intelligence" = "leadle-os"
+"/home/bhuvanesh/AI_Native_Workspace/30-leadle-systems/leadle_content_studio" = "leadle-content-studio"
+"/home/bhuvanesh/Claude Folders/AI_Native_Plans" = "ai-native-revops-work-brain"
+"/home/bhuvanesh/Claude Folders/claude_sessions_project" = "ai-work-journal"
