@@ -10,6 +10,7 @@ import httpx
 
 from capture.claude_code import client, identity, normalize
 from capture.claude_code.discovery import discover_transcripts
+from capture.claude_code.overrides import load_overrides
 from capture.claude_code.report import RunReport
 
 DEFAULT_PROJECTS_DIR = "~/.claude/projects"
@@ -106,6 +107,7 @@ def process(
     now: float | None = None,
     catch_all: str | None = None,
     exclude: list[str] | None = None,
+    cwd_overrides: dict[str, str] | None = None,
 ) -> RunReport:
     """Resolve, normalize, and submit all files. Returns a RunReport.
 
@@ -118,6 +120,12 @@ def process(
     repos = client.fetch_repositories(http, api_url)
     registry = identity.build_registry(repos)
     exclude = exclude or []
+
+    cwd_overrides = cwd_overrides or {}
+    id_to_project = {r["repository_id"]: r["project_id"] for r in repos}
+    resolved_overrides = {
+        cwd: (id_to_project[rid], rid) for cwd, rid in cwd_overrides.items() if rid in id_to_project
+    }
 
     catch_all_ids: tuple[str, str] | None = None
     if catch_all:
@@ -141,7 +149,7 @@ def process(
             continue
 
         is_sub = is_subagent_file(path)
-        resolution = identity.resolve_repository(cwd, registry)
+        resolution = identity.resolve_repository(cwd, registry, resolved_overrides)
         if resolution.status == "pending":
             report.files_skipped += 1
             report.add_pending(resolution.canonical_remote)
@@ -209,6 +217,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Skip sessions whose cwd contains this substring (repeatable)",
     )
+    parser.add_argument(
+        "--cwd-map",
+        default=os.environ.get("AGENTOPS_CWD_MAP"),
+        help="Path to a cwd->repository_id override TOML (default: bundled cwd_overrides.toml)",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
@@ -221,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             catch_all=args.catch_all,
             exclude=args.exclude,
+            cwd_overrides=load_overrides(args.cwd_map),
         )
     print(report.render())
     return 0

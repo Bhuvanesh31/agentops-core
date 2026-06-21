@@ -9,6 +9,8 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from capture.claude_code.overrides import match_override
+
 
 def canonicalize_remote(url: str | None) -> str | None:
     """Normalize a git remote URL to ``host/owner/repo`` (host lowercased).
@@ -72,10 +74,23 @@ def build_registry(repositories: list[dict]) -> dict[str, tuple[str, str]]:
     return registry
 
 
-def resolve_repository(cwd: str, registry: dict[str, tuple[str, str]]) -> RepoResolution:
-    """Resolve a transcript's cwd to a registered repository via its git remote."""
+def resolve_repository(
+    cwd: str,
+    registry: dict[str, tuple[str, str]],
+    overrides: dict[str, tuple[str, str]] | None = None,
+) -> RepoResolution:
+    """Resolve a transcript's cwd to a repository.
+
+    Order: git remote -> registry (registered/pending). If the cwd has no
+    remote, fall back to the cwd override map (longest-prefix) before declaring
+    it local_only. ``overrides`` maps cwd -> (project_id, repository_id).
+    """
     canon = canonicalize_remote(get_git_remote(cwd))
     if canon is None:
+        if overrides:
+            hit = match_override(cwd, overrides)
+            if hit:
+                return RepoResolution("registered", None, hit[0], hit[1])
         return RepoResolution("local_only", None)
     hit = registry.get(canon)
     if hit:

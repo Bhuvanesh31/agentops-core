@@ -54,3 +54,15 @@ def test_resolve_local_only_when_no_remote(tmp_path):
     res = resolve_repository(str(tmp_path), {})
     assert res.status == "local_only"
     assert res.canonical_remote is None
+
+
+def test_resolve_uses_override_map_when_no_remote(tmp_path):
+    # tmp_path is not a git repo -> no remote -> override map should resolve it.
+    overrides = {str(tmp_path): ("proj-x", "repo-x")}
+    res = resolve_repository(str(tmp_path), {}, overrides)
+    assert res == RepoResolution("registered", None, "proj-x", "repo-x")
+
+
+def test_resolve_local_only_when_no_remote_and_not_in_overrides(tmp_path):
+    res = resolve_repository(str(tmp_path), {}, {"/other/path": ("p", "r")})
+    assert res.status == "local_only"

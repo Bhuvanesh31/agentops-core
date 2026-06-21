@@ -372,3 +372,46 @@ def test_subagent_events_merge_into_parent_run(asgi_client, tmp_path):
     # Idempotent re-run.
     report2 = cli.process(asgi_client, "http://test", files, now=10_000_000_000.0)
     assert report2.events_created == 0
+
+
+def test_no_remote_cwd_routed_via_override_map(asgi_client, tmp_path):
+    # Register a real repo, then map a no-remote cwd to it via cwd_overrides.
+    import os
+
+    from capture.claude_code.discovery import discover_transcripts
+
+    repo_id = f"pytest-repo-{uuid4().hex}"
+    resp = asgi_client.post(
+        "/repositories",
+        json={
+            "repository_id": repo_id,
+            "project_id": "agentops-core",
+            "repository_name": "Override Target",
+        },
+    )
+    assert resp.status_code in (200, 201)
+
+    session_id = f"pytest-session-{uuid4().hex}"
+    cwd = str(tmp_path / "mapped-folder")
+    os.makedirs(cwd, exist_ok=True)
+    _write_local_transcript(tmp_path, cwd, session_id)
+
+    files = discover_transcripts(str(tmp_path))
+    report = cli.process(
+        asgi_client,
+        "http://test",
+        files,
+        now=10_000_000_000.0,
+        cwd_overrides={cwd: repo_id},
+    )
+    assert report.files_processed == 1
+    assert report.files_catch_all == 0
+
+    with get_connection() as conn:
+        run = conn.execute(
+            "SELECT repository_id, project_id FROM runs WHERE session_id = %s",
+            (session_id,),
+        ).fetchone()
+    assert run is not None
+    assert run["repository_id"] == repo_id
+    assert run["project_id"] == "agentops-core"
