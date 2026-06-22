@@ -226,3 +226,31 @@ Token usage is derived from captured events into `usage_metrics`
 (`cost_usd` is left NULL with `cost_source = 'unavailable'` until an
 authoritative cost source is added). To (re)derive usage for stored events:
 `python -m app.maintenance backfill-usage`.
+
+## Verification UI
+
+A minimal, read-only browser UI for eyeballing captured data. It is a
+verification surface, not the product UI — it consumes the JSON read API
+exactly as any client would.
+
+Once the container is running, open <http://localhost:8000/ui/>:
+
+- **Overview** — per-project run counts and token totals, with a token bar
+  chart.
+- **Runs** — every run, newest-first, with the same filters and pagination as
+  `GET /runs`. Click a run to open its detail.
+- **Run detail** — all run fields plus a drill-down into the run's normalized
+  events (`GET /runs/{run_id}/events`), each with its `redaction_status` and a
+  collapsible `raw_payload`.
+
+NULL token/cost values render as `—` (never `0`), so the
+missing-stays-unavailable rule is visible. Chart.js is loaded from a CDN; no
+other frontend dependency is added.
+
+### Manual smoke checklist
+
+1. Open `/ui` — the real runs render in the Runs table.
+2. Filter by a known `project_id` — the table narrows.
+3. Open a run — detail header and events list render.
+4. An event shows a collapsed `raw_payload` and a `redaction_status`.
+5. The per-project token chart matches the numbers in the Overview table.

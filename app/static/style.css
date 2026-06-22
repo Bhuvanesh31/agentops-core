@@ -1,0 +1,18 @@
+body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.1rem; margin-top: 2rem; }
+.note { color: #666; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; }
+th { background: #f5f5f5; }
+form input { margin-right: 6px; padding: 4px; }
+.pager { margin: 8px 0; }
+.pager button { margin-right: 6px; }
+.error { background: #fee; border: 1px solid #c00; color: #900; padding: 8px; }
+.event { border: 1px solid #ddd; margin: 6px 0; padding: 6px; }
+.event-head { font-family: monospace; font-size: 0.8rem; }
+pre { background: #f8f8f8; padding: 8px; overflow-x: auto; }
+canvas { max-width: 640px; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; }
+dt { font-weight: 600; }
+dd { margin: 0; font-family: monospace; }
