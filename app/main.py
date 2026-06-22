@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.database import close_pool, init_pool
-from app.routes import events, health, repositories
+from app.routes import events, health, reads, repositories
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(events.router)
     app.include_router(repositories.router)
+    app.include_router(reads.router)
     return app
 
 
