@@ -210,3 +210,19 @@ events' `occurred_at`: each ingest folds the event time into the run's bounds
 write-time bookkeeping. To recompute the bounds for runs already stored (e.g.
 after importing historical events), run the host-local command:
 `python -m app.maintenance backfill-run-times`. It is idempotent — a second run updates 0 rows.
+
+## Read API
+
+Query captured runs (all read-only JSON):
+
+- `GET /runs` — list runs newest-first. Optional filters `project_id`,
+  `repository_id`, `status`, `tool_id`; pagination `limit` (1–200, default 50)
+  and `offset`. Each item includes token usage from `usage_metrics`.
+- `GET /runs/{run_id}` — one run's detail (404 if unknown).
+- `GET /overview` — per-project rollup: run count, token totals, and activity
+  time range.
+
+Token usage is derived from captured events into `usage_metrics`
+(`cost_usd` is left NULL with `cost_source = 'unavailable'` until an
+authoritative cost source is added). To (re)derive usage for stored events:
+`python -m app.maintenance backfill-usage`.
