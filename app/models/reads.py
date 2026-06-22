@@ -45,6 +45,20 @@ def get_run(conn: psycopg.Connection, run_id: str) -> dict[str, Any] | None:
     return conn.execute("SELECT * FROM run_overview WHERE run_id = %s", (run_id,)).fetchone()
 
 
+def list_run_events(conn: psycopg.Connection, run_id: str) -> list[dict[str, Any]]:
+    """Return one run's events oldest-first; empty list if the run is unknown."""
+    return conn.execute(
+        """
+        SELECT event_id, event_type, tool_name, files_touched,
+               redaction_status, occurred_at, received_at, raw_payload
+        FROM run_events
+        WHERE run_id = %s
+        ORDER BY occurred_at ASC NULLS LAST, received_at ASC
+        """,
+        (run_id,),
+    ).fetchall()
+
+
 def project_overview(conn: psycopg.Connection) -> list[dict[str, Any]]:
     """Per-project rollup: run count, token totals, and activity time range."""
     return conn.execute(

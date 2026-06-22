@@ -34,6 +34,19 @@ class RunDetail(RunListItem):
     human: str | None = None
 
 
+class RunEvent(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    event_id: UUID
+    event_type: str
+    tool_name: str | None = None
+    files_touched: list[str]
+    redaction_status: str
+    occurred_at: datetime | None = None
+    received_at: datetime | None = None
+    raw_payload: dict
+
+
 class ProjectOverview(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
