@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentOps — Verification UI</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>AgentOps — Verification UI</h1>
+  <p class="note">Read-only verification surface over the AgentOps read API.</p>
+
+  <section>
+    <h2>Overview</h2>
+    <canvas id="token-chart" height="120"></canvas>
+    <div id="overview">Loading…</div>
+  </section>
+
+  <section>
+    <h2>Runs</h2>
+    <form id="filter-form">
+      <input id="project_id" placeholder="project_id" />
+      <input id="repository_id" placeholder="repository_id" />
+      <input id="status" placeholder="status" />
+      <input id="tool_id" placeholder="tool_id" />
+      <button type="submit">Filter</button>
+    </form>
+    <div class="pager">
+      <button id="prev" type="button">Prev</button>
+      <span id="page-info"></span>
+      <button id="next" type="button">Next</button>
+    </div>
+    <div id="runs">Loading…</div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"
+          integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3"
+          crossorigin="anonymous"></script>
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+  <script>initIndex();</script>
+</body>
+</html>

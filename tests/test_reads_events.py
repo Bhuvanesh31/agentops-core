@@ -81,3 +81,10 @@ def test_events_expose_redaction_and_files(client):
     assert first["redaction_status"] == "redacted"
     assert first["files_touched"] == ["a.py"]
     assert first["event_type"] == "tool_use"
+
+
+def test_ui_index_is_served(client):
+    resp = client.get("/ui/")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "AgentOps" in resp.text
