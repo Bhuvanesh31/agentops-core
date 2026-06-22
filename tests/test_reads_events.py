@@ -102,3 +102,10 @@ def test_ui_run_html_is_served(client):
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert "initRun" in resp.text
+
+
+def test_ui_charts_js_is_served(client):
+    resp = client.get("/ui/charts.js")
+    assert resp.status_code == 200
+    assert "javascript" in resp.headers["content-type"]
+    assert "renderTokenChart" in resp.text
