@@ -133,3 +133,85 @@ async function initIndex() {
     loadRuns();
   });
 }
+
+const DETAIL_FIELDS = [
+  "run_id", "project_id", "repository_id", "tool_id", "model", "status",
+  "branch", "intent", "summary", "human", "session_id",
+  "started_at", "ended_at",
+  "input_tokens", "output_tokens", "cached_input_tokens",
+  "cost_usd", "cost_source", "iteration_count", "tool_calls_count",
+];
+
+function renderDetail(container, run) {
+  container.innerHTML = "";
+  const dl = document.createElement("dl");
+  for (const field of DETAIL_FIELDS) {
+    const dt = document.createElement("dt");
+    dt.textContent = field;
+    const dd = document.createElement("dd");
+    dd.textContent = cell(run[field]);
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  }
+  container.appendChild(dl);
+}
+
+function renderEvents(container, events) {
+  container.innerHTML = "";
+  if (events.length === 0) {
+    const p = document.createElement("p");
+    p.textContent = "No events.";
+    container.appendChild(p);
+    return;
+  }
+  for (const ev of events) {
+    const card = document.createElement("div");
+    card.className = "event";
+
+    const head = document.createElement("div");
+    head.className = "event-head";
+    const files = (ev.files_touched || []).join(", ");
+    head.textContent =
+      `${cell(ev.occurred_at)}  ${ev.event_type}  ${cell(ev.tool_name)}  ` +
+      `[${ev.redaction_status}]  ${files}`;
+
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "raw_payload";
+    const pre = document.createElement("pre");
+    try {
+      pre.textContent = JSON.stringify(ev.raw_payload, null, 2);
+    } catch (e) {
+      // Defensive: never let one bad payload break the whole page.
+      pre.textContent = String(ev.raw_payload);
+    }
+    details.appendChild(summary);
+    details.appendChild(pre);
+
+    card.appendChild(head);
+    card.appendChild(details);
+    container.appendChild(card);
+  }
+}
+
+async function initRun() {
+  const id = new URLSearchParams(window.location.search).get("id");
+  const detailEl = document.getElementById("detail");
+  const eventsEl = document.getElementById("events");
+  if (!id) {
+    showError(detailEl, new Error("missing ?id= in URL"));
+    return;
+  }
+  try {
+    const run = await fetchJSON(`/runs/${encodeURIComponent(id)}`);
+    renderDetail(detailEl, run);
+  } catch (err) {
+    showError(detailEl, err);
+  }
+  try {
+    const events = await fetchJSON(`/runs/${encodeURIComponent(id)}/events`);
+    renderEvents(eventsEl, events);
+  } catch (err) {
+    showError(eventsEl, err);
+  }
+}
