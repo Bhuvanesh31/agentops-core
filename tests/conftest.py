@@ -62,6 +62,12 @@ def cleanup_pytest_rows() -> Iterator[None]:
     yield
     try:
         with get_connection() as conn:
+            # Delete commits before runs: commits.run_id is SET NULL on run
+            # deletion, so we must clean them up first while the FK is still set.
+            conn.execute(
+                "DELETE FROM commits WHERE run_id IN "
+                "(SELECT run_id FROM runs WHERE session_id LIKE 'pytest-%')"
+            )
             # Deleting runs cascades to their run_events.
             conn.execute("DELETE FROM runs WHERE session_id LIKE 'pytest-%'")
             conn.execute("DELETE FROM run_events WHERE source_event_id LIKE 'pytest-%'")
