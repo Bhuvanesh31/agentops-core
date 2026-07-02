@@ -1,15 +1,21 @@
 # AgentOps Core
 
-AgentOps Core captures work performed by Claude Code, Codex and future AI development tools.
+A self-hosted observability platform for AI coding sessions. It captures work from Claude Code, Codex, and future AI development tools — normalizing events, storing runs in PostgreSQL, linking sessions to git commits, and exposing a read API with a verification UI.
 
-Initial scope:
+> **Status:** Foundation complete. Actively building git commit reconciliation and cross-repo search. Not production-ready — this is the capture and storage layer of a larger observability platform.
 
-- Capture sessions automatically
-- Store runs centrally
-- Connect runs to repositories and commits
-- Search activity across projects
-- Feed the AI Work Journal
-- Compare Claude Code and Codex outcomes
+## What's built
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Ingestion API | ✅ | FastAPI service — normalizes and stores AI session events; idempotent; secret redaction |
+| Claude Code capture | ✅ | CLI to replay local transcripts including sub-agent sessions |
+| Run timestamps | ✅ | `started_at`/`ended_at` derived from real event times |
+| Repository registration | ✅ | Projects/repos registered and linked to captured sessions; cwd override map for moved folders |
+| Read API | ✅ | `GET /runs`, `/runs/{id}`, `/overview` with token usage rollups |
+| Verification UI | ✅ | Read-only browser UI at `/ui` — runs, events, token chart |
+| Git reconciliation | 🔄 | Links git commits made during a session to the run that produced them |
+| Cross-repo search | 📋 | Structured search across projects and repositories |
 
 ## Local database
 
@@ -254,3 +260,7 @@ other frontend dependency is added.
 3. Open a run — detail header and events list render.
 4. An event shows a collapsed `raw_payload` and a `redaction_status`.
 5. The per-project token chart matches the numbers in the Overview table.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

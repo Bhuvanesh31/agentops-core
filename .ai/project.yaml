@@ -16,5 +16,5 @@ agentops:
   git_reconciliation: true
 
 data:
-  classification: internal
+  classification: public
   secret_redaction_required: true

@@ -1,0 +1,20 @@
+# cwd -> repository_id override map
+#
+# For sessions whose recorded cwd has no resolvable git remote (moved/deleted
+# folders, local-only dirs), this file routes them to a registered repository
+# instead of the catch-all.
+#
+# Usage:
+#   1. Copy this file to cwd_overrides.toml (git-ignored, stays local)
+#   2. Add one entry per cwd you want to redirect
+#   3. Re-run `python -m capture.claude_code` — existing catch-all runs can be
+#      re-pointed with `python -m capture.claude_code.reclassify`
+#
+# The value must match a repository_id registered in the database (seed.sql or
+# POST /repositories). Longest prefix wins — a more specific path overrides a
+# broader one.
+
+[overrides]
+# "/home/your-user/projects/my-repo"        = "my-repo-id"
+# "/home/your-user/notes"                   = "unsorted-local"
+# "/home/your-user/work/client-project"     = "client-project-id"

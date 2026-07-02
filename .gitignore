@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Host-specific cwd overrides (copy cwd_overrides.example.toml to create yours)
+capture/claude_code/cwd_overrides.toml
+
 # Python
 __pycache__/
 *.py[cod]
