@@ -109,3 +109,15 @@ def test_ui_charts_js_is_served(client):
     assert resp.status_code == 200
     assert "javascript" in resp.headers["content-type"]
     assert "renderTokenChart" in resp.text
+
+
+def test_ui_run_html_has_commits_section(client):
+    resp = client.get("/ui/run.html")
+    assert resp.status_code == 200
+    assert "commits" in resp.text
+
+
+def test_ui_app_js_has_render_commits(client):
+    resp = client.get("/ui/app.js")
+    assert resp.status_code == 200
+    assert "renderCommits" in resp.text

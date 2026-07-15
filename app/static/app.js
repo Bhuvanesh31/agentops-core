@@ -194,10 +194,49 @@ function renderEvents(container, events) {
   }
 }
 
+function renderCommits(container, commits) {
+  container.innerHTML = "";
+  if (commits.length === 0) {
+    const p = document.createElement("p");
+    p.textContent = "No commits linked.";
+    container.appendChild(p);
+    return;
+  }
+  const table = document.createElement("table");
+  const headRow = table.createTHead().insertRow();
+  for (const label of ["SHA", "Message", "Author", "Committed at"]) {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headRow.appendChild(th);
+  }
+  const body = table.createTBody();
+  for (const c of commits) {
+    const tr = body.insertRow();
+    const values = [
+      c.commit_sha ? c.commit_sha.slice(0, 7) : "—",
+      c.commit_message ?? "—",
+      c.author_name ?? "—",
+      c.committed_at ? new Date(c.committed_at).toLocaleString() : "—",
+    ];
+    values.forEach((text, i) => {
+      const td = tr.insertCell();
+      if (i === 0) {
+        const code = document.createElement("code");
+        code.textContent = text;
+        td.appendChild(code);
+      } else {
+        td.textContent = text;  // never innerHTML — commit data is untrusted
+      }
+    });
+  }
+  container.appendChild(table);
+}
+
 async function initRun() {
   const id = new URLSearchParams(window.location.search).get("id");
   const detailEl = document.getElementById("detail");
   const eventsEl = document.getElementById("events");
+  const commitsEl = document.getElementById("commits");
   if (!id) {
     showError(detailEl, new Error("missing ?id= in URL"));
     return;
@@ -213,5 +252,11 @@ async function initRun() {
     renderEvents(eventsEl, events);
   } catch (err) {
     showError(eventsEl, err);
+  }
+  try {
+    const commits = await fetchJSON(`/runs/${encodeURIComponent(id)}/commits`);
+    renderCommits(commitsEl, commits);
+  } catch (err) {
+    showError(commitsEl, err);
   }
 }
