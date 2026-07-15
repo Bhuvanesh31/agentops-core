@@ -192,6 +192,39 @@ def process(
     return report
 
 
+def _reconcile_after_capture() -> None:
+    """Post-capture: link git commits to runs just ingested.
+
+    Requires DATABASE_URL in the environment (already needed by maintenance
+    commands). Skips silently if not set. All errors are logged to stderr and
+    swallowed — this step must never block or fail the capture flow.
+    """
+    import os
+
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        return
+
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+
+        from capture.git.reconcile import reconcile_runs
+
+        with psycopg.connect(db_url, row_factory=dict_row) as conn:
+            result = reconcile_runs(conn)
+
+        if result["commits_linked"] > 0:
+            print(
+                f"[git-reconcile] linked {result['commits_linked']} commits "
+                f"across {result['runs_processed']} runs"
+            )
+    except Exception as exc:  # noqa: BLE001
+        import sys
+
+        print(f"[git-reconcile] post-capture reconcile failed: {exc}", file=sys.stderr)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AgentOps Claude Code capture")
     parser.add_argument(
@@ -237,4 +270,8 @@ def main(argv: list[str] | None = None) -> int:
             cwd_overrides=load_overrides(args.cwd_map),
         )
     print(report.render())
+
+    if not args.dry_run:
+        _reconcile_after_capture()
+
     return 0
