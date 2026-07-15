@@ -58,3 +58,14 @@ class ProjectOverview(BaseModel):
     cached_input_tokens: int | None = None
     earliest: datetime | None = None
     latest_activity: datetime | None = None
+
+
+class RunCommit(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    commit_sha: str
+    branch: str | None = None
+    author_name: str | None = None
+    author_email: str | None = None
+    commit_message: str | None = None
+    committed_at: datetime | None = None

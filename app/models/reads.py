@@ -59,6 +59,20 @@ def list_run_events(conn: psycopg.Connection, run_id: str) -> list[dict[str, Any
     ).fetchall()
 
 
+def list_run_commits(conn: psycopg.Connection, run_id: str) -> list[dict[str, Any]]:
+    """Return commits linked to a run, oldest-first. Empty list if none."""
+    return conn.execute(
+        """
+        SELECT commit_sha, branch, author_name, author_email,
+               commit_message, committed_at
+        FROM commits
+        WHERE run_id = %s
+        ORDER BY committed_at ASC NULLS LAST
+        """,
+        (run_id,),
+    ).fetchall()
+
+
 def project_overview(conn: psycopg.Connection) -> list[dict[str, Any]]:
     """Per-project rollup: run count, token totals, and activity time range."""
     return conn.execute(

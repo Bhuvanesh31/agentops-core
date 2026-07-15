@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import db_dependency
 from app.models import reads
-from app.schemas.reads import ProjectOverview, RunDetail, RunEvent, RunListItem
+from app.schemas.reads import ProjectOverview, RunCommit, RunDetail, RunEvent, RunListItem
 
 # NOTE: do not `from fastapi import status` here — the GET /runs `status` query
 # param would shadow it. Use literal HTTP codes where needed (Task 4).
@@ -44,6 +44,13 @@ def get_run_events(
     run_id: str, conn: psycopg.Connection = Depends(db_dependency)
 ) -> list[dict]:
     return reads.list_run_events(conn, run_id)
+
+
+@router.get("/runs/{run_id}/commits", response_model=list[RunCommit])
+def get_run_commits(
+    run_id: str, conn: psycopg.Connection = Depends(db_dependency)
+) -> list[dict]:
+    return reads.list_run_commits(conn, run_id)
 
 
 @router.get("/overview", response_model=list[ProjectOverview])
