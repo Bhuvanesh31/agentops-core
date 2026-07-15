@@ -1,13 +1,11 @@
 """Tests for capture.git.reconcile — upsert logic."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
-
-import pytest
 
 from app.database import get_connection
 from capture.git.reconcile import upsert_commits
-from tests.conftest import SEED_REPOSITORY_ID, SEED_TOOL_ID, make_event
+from tests.conftest import SEED_REPOSITORY_ID, make_event
 
 
 def _get_run_id(session_id: str) -> str:
@@ -27,7 +25,7 @@ def _make_fake_commit(sha_suffix: str | None = None) -> dict:
         "author_name": "Test Author",
         "author_email": "test@example.com",
         "commit_message": "test commit",
-        "committed_at": datetime(2026, 6, 25, 10, 0, tzinfo=timezone.utc),
+        "committed_at": datetime(2026, 6, 25, 10, 0, tzinfo=UTC),
     }
 
 

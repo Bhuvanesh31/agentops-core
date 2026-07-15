@@ -79,7 +79,11 @@ def reconcile_runs(
         params.append(repository_id)
     sql += " ORDER BY ended_at DESC"
 
-    rows = conn.execute(sql, params).fetchall()
+    try:
+        rows = conn.execute(sql, params).fetchall()
+    except Exception as exc:
+        print(f"[git-reconcile] DB query failed: {exc}", file=sys.stderr)
+        return {"runs_processed": 0, "commits_linked": 0}
 
     runs_processed = 0
     commits_linked = 0
@@ -147,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         with psycopg.connect(db_url, row_factory=dict_row) as conn:
+            # --all is the default when --repo is omitted; args.repo=None means all repos.
             result = reconcile_runs(conn, repository_id=args.repo, dry_run=args.dry_run)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
