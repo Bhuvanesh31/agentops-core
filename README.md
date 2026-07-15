@@ -2,7 +2,7 @@
 
 A self-hosted observability platform for AI coding sessions. It captures work from Claude Code, Codex, and future AI development tools — normalizing events, storing runs in PostgreSQL, linking sessions to git commits, and exposing a read API with a verification UI.
 
-> **Status:** Foundation complete. Actively building git commit reconciliation and cross-repo search. Not production-ready — this is the capture and storage layer of a larger observability platform.
+> **Status:** Foundation complete. Actively building cross-repo search. Not production-ready — this is the capture and storage layer of a larger observability platform.
 
 ## What's built
 
@@ -14,7 +14,7 @@ A self-hosted observability platform for AI coding sessions. It captures work fr
 | Repository registration | ✅ | Projects/repos registered and linked to captured sessions; cwd override map for moved folders |
 | Read API | ✅ | `GET /runs`, `/runs/{id}`, `/overview` with token usage rollups |
 | Verification UI | ✅ | Read-only browser UI at `/ui` — runs, events, token chart |
-| Git reconciliation | 🔄 | Links git commits made during a session to the run that produced them |
+| Git reconciliation | ✅ | Links git commits made during a session to the run that produced them |
 | Cross-repo search | 📋 | Structured search across projects and repositories |
 
 ## Local database
@@ -225,6 +225,8 @@ Query captured runs (all read-only JSON):
   `repository_id`, `status`, `tool_id`; pagination `limit` (1–200, default 50)
   and `offset`. Each item includes token usage from `usage_metrics`.
 - `GET /runs/{run_id}` — one run's detail (404 if unknown).
+- `GET /runs/{run_id}/commits` — git commits linked to a run, ordered by
+  `committed_at`. Returns `[]` (200) for runs with no linked commits.
 - `GET /overview` — per-project rollup: run count, token totals, and activity
   time range.
 
@@ -232,6 +234,45 @@ Token usage is derived from captured events into `usage_metrics`
 (`cost_usd` is left NULL with `cost_source = 'unavailable'` until an
 authoritative cost source is added). To (re)derive usage for stored events:
 `python -m app.maintenance backfill-usage`.
+
+## Git commit reconciliation
+
+Each captured run can be linked to the git commits that were made during its
+session. Reconciliation uses the run's `started_at`/`ended_at` window and
+`cwd` to query `git log` and upsert matching commits into the `commits` table.
+
+### Automatic (after each capture)
+
+The capture CLI runs reconciliation automatically after every successful
+ingest. It is non-fatal — a git or DB failure logs a warning and does not
+change the capture exit code.
+
+```
+[git-reconcile] 1 runs, 3 commits
+```
+
+Skip with `--dry-run`.
+
+### Manual backfill
+
+Reconcile all historical runs for a specific repository (by `cwd`):
+
+```bash
+.venv/bin/python -m capture.git.reconcile --repo /path/to/repo
+```
+
+Reconcile all registered repositories at once:
+
+```bash
+.venv/bin/python -m capture.git.reconcile --all
+```
+
+Add `--dry-run` to preview without writing. The command is idempotent —
+`ON CONFLICT (commit_sha) DO NOTHING` means re-running it is always safe.
+
+Commits from deleted branches (merged feature branches) cannot be backfilled
+because their `git log` is gone after deletion. Sessions captured going
+forward on `main` link automatically.
 
 ## Verification UI
 
@@ -247,7 +288,9 @@ Once the container is running, open <http://localhost:8000/ui/>:
   `GET /runs`. Click a run to open its detail.
 - **Run detail** — all run fields plus a drill-down into the run's normalized
   events (`GET /runs/{run_id}/events`), each with its `redaction_status` and a
-  collapsible `raw_payload`.
+  collapsible `raw_payload`. Git commits linked to the run appear in a separate
+  Commits section (`GET /runs/{run_id}/commits`), with 7-character SHA, message,
+  author, and timestamp.
 
 NULL token/cost values render as `—` (never `0`), so the
 missing-stays-unavailable rule is visible. Chart.js is loaded from a CDN; no
@@ -260,6 +303,7 @@ other frontend dependency is added.
 3. Open a run — detail header and events list render.
 4. An event shows a collapsed `raw_payload` and a `redaction_status`.
 5. The per-project token chart matches the numbers in the Overview table.
+6. A run captured after a `git commit` shows that commit in the Commits section.
 
 ## License
 
