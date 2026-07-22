@@ -131,6 +131,35 @@ Add `--dry-run` to preview without writing.
 
 ---
 
+## Git reconciliation summary
+
+After a reconcile run (manual or post-capture), the output looks like:
+
+```
+runs_processed=133 commits_linked=193
+skipped_stale_cwd=45 skipped_non_git_cwd=12 skipped_missing_branch=8 failed_unexpected=0
+```
+
+| Field | Meaning |
+|---|---|
+| `runs_processed` | Runs where at least one commit was found in the time window |
+| `commits_linked` | Commits actually written to the DB (0 on `--dry-run`, skips duplicates) |
+| `skipped_stale_cwd` | Run's cwd path no longer exists — deleted worktrees, old machines, moved folders. **Normal for historical data.** |
+| `skipped_non_git_cwd` | cwd exists but is not inside a git repo (e.g., root workspace folder). **Normal.** |
+| `skipped_missing_branch` | Branch was deleted locally after the run; fallback all-refs search also found nothing. **Normal for merged/deleted branches.** |
+| `failed_unexpected` | Unexpected error (bug or transient git failure). Should be 0; check stderr if non-zero. |
+
+For per-run detail (useful during initial setup or debugging):
+
+```bash
+set -a; . ./.env; set +a
+.venv/bin/python -m capture.git.reconcile --all --verbose
+```
+
+Historical skips (`stale_cwd`, `missing_branch`) are expected and not a problem — they represent sessions from paths that no longer exist or branches that were cleaned up after merging. Only `failed_unexpected > 0` warrants investigation.
+
+---
+
 ## Registering new repositories
 
 When a capture run reports sessions as **pending** or **local-only**, register the repo so future captures attribute correctly.

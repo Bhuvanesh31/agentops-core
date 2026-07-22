@@ -78,3 +78,13 @@ def test_query_commits_nonexistent_branch_returns_empty(git_repo):
     before = datetime(2026, 6, 25, 11, 0, tzinfo=timezone.utc)
     result = query_commits(str(git_repo), "no-such-branch", after, before)
     assert result == []
+
+
+def test_query_commits_branch_none_searches_all_refs(git_repo):
+    """branch=None (all-refs fallback) still finds commits in the window."""
+    after = datetime(2026, 6, 25, 9, 0, tzinfo=timezone.utc)
+    before = datetime(2026, 6, 25, 11, 0, tzinfo=timezone.utc)
+    commits = query_commits(str(git_repo), None, after, before)
+    assert len(commits) == 2
+    messages = {c["commit_message"] for c in commits}
+    assert messages == {"first commit", "second commit"}

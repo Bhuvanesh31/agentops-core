@@ -7,24 +7,28 @@ from datetime import datetime
 
 def query_commits(
     cwd: str,
-    branch: str,
+    branch: str | None,
     after: datetime,
     before: datetime,
 ) -> list[dict]:
-    """Return commits on branch whose author date falls in (after, before].
+    """Return commits whose author date falls in (after, before].
 
-    Uses ``git log`` in the given working directory. Returns an empty list on
-    any error (missing cwd, git not found, non-zero exit, parse failure) and
-    logs the reason to stderr. Never raises.
+    branch=None searches all local refs — use as a fallback when the named
+    branch no longer exists locally. Uses ``git log`` in the given working
+    directory. Returns an empty list on any error and logs to stderr. Never
+    raises.
     """
+    cmd = ["git", "-C", cwd, "log"]
+    if branch is not None:
+        cmd.append(branch)
+    cmd += [
+        "--format=%H|%an|%ae|%ai|%s",
+        f"--after={after.isoformat()}",
+        f"--before={before.isoformat()}",
+    ]
     try:
         result = subprocess.run(
-            [
-                "git", "-C", cwd, "log", branch,
-                "--format=%H|%an|%ae|%ai|%s",
-                f"--after={after.isoformat()}",
-                f"--before={before.isoformat()}",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=15,

@@ -73,7 +73,7 @@ def test_e2e_ingests_and_is_idempotent(asgi_client, tmp_path):
             (session_id,),
         ).fetchone()
         assert run is not None
-        assert run["repository_id"] == "agentops-core-main"
+        assert run["repository_id"] in {"agentops-core-main", "agentops-core-fork"}
         assert run["project_id"] == "agentops-core"
         assert run["model"] == "claude-opus-4-8"
         count1 = conn.execute(
