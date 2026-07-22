@@ -131,6 +131,56 @@ Add `--dry-run` to preview without writing.
 
 ---
 
+## Registering new repositories
+
+When a capture run reports sessions as **pending** or **local-only**, register the repo so future captures attribute correctly.
+
+### Repos with a GitHub remote (pending)
+
+Add an `INSERT INTO repositories` block to `database/seed.sql` (follow the existing pattern) and re-apply:
+
+```bash
+set -a; . ./.env; set +a
+docker exec -i agentops-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 < database/seed.sql
+```
+
+If the project doesn't exist yet, add an `INSERT INTO projects` block above the repo.
+
+Key values:
+- `repository_id` — a stable slug you choose (e.g. `my-repo`)
+- `remote_url` — the full HTTPS clone URL (e.g. `https://github.com/org/repo.git`); used for matching
+- `project_id` — must reference an existing project (or add the project first)
+
+### Repos with no git remote (local-only)
+
+Add the cwd path to `capture/claude_code/cwd_overrides.toml` (host-specific, git-ignored):
+
+```toml
+[overrides]
+"/home/you/path/to/project" = "my-repo-id"
+```
+
+The value must be a `repository_id` already registered in the DB. The match is a longest-prefix, so one entry covers an entire subtree.
+
+For stale git worktrees (path no longer exists on disk), add their parent `.claude/worktrees` directory:
+
+```toml
+"/home/you/project/.claude/worktrees" = "my-repo-id"
+```
+
+### After registering
+
+Re-run capture to pick up new sessions:
+
+```bash
+set -a; . ./.env; set +a
+.venv/bin/python -m capture.claude_code
+```
+
+To backfill sessions previously routed to catch-all, use the reclassify command (if available) or re-run capture — duplicate events are ignored silently.
+
+---
+
 ## Stack management
 
 ```bash

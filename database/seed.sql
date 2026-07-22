@@ -145,6 +145,209 @@ ON CONFLICT (repository_id) DO UPDATE SET
     updated_at      = NOW();
 
 
+-- ============================================================
+-- LEADLE ECOSYSTEM
+-- Projects and repositories for the Leadle product/platform work.
+-- ============================================================
+
+-- leadle project already seeded above (via leadle-os / leadle-content-studio).
+-- Only repositories are added here.
+
+INSERT INTO repositories (
+    repository_id,
+    project_id,
+    repository_name,
+    remote_url,
+    local_path,
+    default_branch,
+    is_active
+)
+VALUES
+    (
+        'leadle-client-dashboard',
+        'leadle',
+        'Leadle Client Dashboard',
+        'https://github.com/revops-leadle/leadle-client-dashboard.git',
+        NULL,
+        'main',
+        TRUE
+    ),
+    (
+        'leadle-mom-automation',
+        'leadle',
+        'Leadle MoM Automation',
+        'https://github.com/Bhuvanesh31/leadle-mom-automation.git',
+        '/home/bhuvanesh/AI_Native_Workspace/30-leadle-systems/leadle-mom-automation',
+        'main',
+        TRUE
+    ),
+    (
+        'icp-sampler',
+        'leadle',
+        'ICP Sampler',
+        'https://github.com/revops-leadle/icp-sampler.git',
+        NULL,
+        'main',
+        TRUE
+    ),
+    (
+        'ai-native-team',
+        'leadle',
+        'AI-Native Team Use-Cases',
+        NULL,
+        '/home/bhuvanesh/AI_Native_Workspace/30-leadle-systems/AI-native-team',
+        'main',
+        TRUE
+    ),
+    (
+        'leadle-outbound',
+        'leadle',
+        'Leadle Outbound',
+        NULL,
+        '/home/bhuvanesh/AI_Native_Workspace/30-leadle-systems/leadle-outbound',
+        'main',
+        TRUE
+    ),
+    (
+        'leadle-client-documentation',
+        'leadle',
+        'Leadle Client Documentation',
+        NULL,
+        '/home/bhuvanesh/AI_Native_Workspace/30-leadle-systems/leadle-client-documentation',
+        'main',
+        TRUE
+    )
+ON CONFLICT (repository_id) DO UPDATE SET
+    project_id      = EXCLUDED.project_id,
+    repository_name = EXCLUDED.repository_name,
+    remote_url      = EXCLUDED.remote_url,
+    local_path      = EXCLUDED.local_path,
+    default_branch  = EXCLUDED.default_branch,
+    is_active       = EXCLUDED.is_active,
+    updated_at      = NOW();
+
+
+-- ------------------------------------------------------------
+-- CONTENT INTELLIGENCE
+-- ------------------------------------------------------------
+INSERT INTO projects (
+    project_id,
+    project_name,
+    category,
+    status,
+    owner,
+    description
+)
+VALUES (
+    'content-intelligence',
+    'Content Intelligence',
+    'platform',
+    'active',
+    'bhuvanesh',
+    'AI-native content intelligence tooling and corpus for Leadle/personal content workflows.'
+)
+ON CONFLICT (project_id) DO UPDATE SET
+    project_name = EXCLUDED.project_name,
+    category     = EXCLUDED.category,
+    status       = EXCLUDED.status,
+    owner        = EXCLUDED.owner,
+    description  = EXCLUDED.description,
+    updated_at   = NOW();
+
+INSERT INTO repositories (
+    repository_id,
+    project_id,
+    repository_name,
+    remote_url,
+    local_path,
+    default_branch,
+    is_active
+)
+VALUES (
+    'bhuvanesh-content-intelligence',
+    'content-intelligence',
+    'Bhuvanesh Content Intelligence',
+    'https://github.com/Bhuvanesh31/bhuvanesh-content-intelligence.git',
+    NULL,
+    'main',
+    TRUE
+)
+ON CONFLICT (repository_id) DO UPDATE SET
+    project_id      = EXCLUDED.project_id,
+    repository_name = EXCLUDED.repository_name,
+    remote_url      = EXCLUDED.remote_url,
+    local_path      = EXCLUDED.local_path,
+    default_branch  = EXCLUDED.default_branch,
+    is_active       = EXCLUDED.is_active,
+    updated_at      = NOW();
+
+
+-- ------------------------------------------------------------
+-- PERSONAL
+-- Personal projects with no org affiliation.
+-- ------------------------------------------------------------
+INSERT INTO projects (
+    project_id,
+    project_name,
+    category,
+    status,
+    owner,
+    description
+)
+VALUES (
+    'personal',
+    'Personal',
+    'personal',
+    'active',
+    'bhuvanesh',
+    'Personal experiments, dashboards, and content outside Leadle scope.'
+)
+ON CONFLICT (project_id) DO UPDATE SET
+    project_name = EXCLUDED.project_name,
+    category     = EXCLUDED.category,
+    status       = EXCLUDED.status,
+    owner        = EXCLUDED.owner,
+    description  = EXCLUDED.description,
+    updated_at   = NOW();
+
+INSERT INTO repositories (
+    repository_id,
+    project_id,
+    repository_name,
+    remote_url,
+    local_path,
+    default_branch,
+    is_active
+)
+VALUES
+    (
+        'claude-content-personal',
+        'personal',
+        'Claude Content (Personal)',
+        'https://github.com/Bhuvanesh31/claude_content_personal.git',
+        NULL,
+        'main',
+        TRUE
+    ),
+    (
+        'bhuvanesh-channel-performance-dashboard',
+        'personal',
+        'Bhuvanesh Channel Performance Dashboard',
+        NULL,
+        '/home/bhuvanesh/AI_Native_Workspace/40-personal-systems/bhuvanesh-channel-performance-dashboard',
+        'main',
+        TRUE
+    )
+ON CONFLICT (repository_id) DO UPDATE SET
+    project_id      = EXCLUDED.project_id,
+    repository_name = EXCLUDED.repository_name,
+    remote_url      = EXCLUDED.remote_url,
+    local_path      = EXCLUDED.local_path,
+    default_branch  = EXCLUDED.default_branch,
+    is_active       = EXCLUDED.is_active,
+    updated_at      = NOW();
+
+
 -- ------------------------------------------------------------
 -- TOOLS
 -- Stable slugs (claude-code, codex) are the tool_id values
