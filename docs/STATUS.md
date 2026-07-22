@@ -1,10 +1,10 @@
 # AgentOps Core — Project Status
 
-**As of:** 2026-06-25  
-**Branch:** `main` @ `601fb4e`  
+**As of:** 2026-07-22  
+**Branch:** `main` @ `8a8c1df` → operationalization script added  
 **GitHub:** https://github.com/Bhuvanesh31/agentops-core  
 **Stack:** FastAPI + psycopg3 + PostgreSQL · Docker Compose · Python 3.12 · Hatchling  
-**Test suite:** 119/119 passing
+**Test suite:** 59 test functions across 15 files (last recorded full-suite run: 119/119 at `601fb4e`; Tasks 2–5 have since added 7 test functions — rerun to restate the collected number)
 
 ---
 
@@ -62,9 +62,10 @@ agentops_core/
 │   │   ├── overrides.py        # cwd override map loader
 │   │   ├── reclassify.py       # Surgical UPDATE for historical mis-routing
 │   │   └── cwd_overrides.toml  # Version-controlled old-cwd → repo map
-│   └── git/                    # NEW (2026-06-25) — git reconciliation
+│   └── git/                    # Git reconciliation (shipped 2026-07-14/15)
 │       ├── __init__.py         # Package marker
-│       └── query.py            # query_commits(cwd, branch, after, before)
+│       ├── query.py            # query_commits(cwd, branch, after, before)
+│       └── reconcile.py        # upsert_commits, reconcile_runs, CLI (--repo/--all/--dry-run)
 ├── database/
 │   ├── schema.sql              # Postgres schema (runs, run_events, usage_metrics, commits, views)
 │   └── seed.sql                # Projects + repos reference data
@@ -96,9 +97,9 @@ set -a; . ./.env; set +a; .venv/bin/python -m pytest
 set -a; . ./.env; set +a; python -m app.maintenance backfill-run-times
 set -a; . ./.env; set +a; python -m app.maintenance backfill-usage
 
-# Git reconciliation (after Task 2 ships)
+# Git reconciliation (shipped — runs automatically after every capture; this is for manual/backfill use)
 set -a; . ./.env; set +a; python -m capture.git.reconcile --all
-set -a; . ./.env; set +a; python -m capture.git.reconcile --repo agentops-core
+set -a; . ./.env; set +a; python -m capture.git.reconcile --repo <repository_id>   # filters on repository_id, not a path
 
 # Verification UI
 open http://localhost:8000/ui/
@@ -130,16 +131,25 @@ open http://localhost:8000/ui/
 | #4 | `968e86c` | Run timestamps: started_at/ended_at derived from MIN/MAX(occurred_at); go-forward fold + whole-table backfill; maintenance CLI |
 | #5 | `969c84f` | Read surface: token-usage derivation into usage_metrics; GET /runs, GET /runs/{id}, GET /overview read API |
 | #7 | `e9751c0` | Verification UI: GET /runs/{id}/events; /ui static HTML+JS; Chart.js token bar chart; all data via fetch() against JSON API |
+| — | `601fb4e` | Git reconciliation Task 1: `capture/git/query.py` (`query_commits`), commit cleanup in conftest |
+| — | `a6beb04`, `0b45c65` | Git reconciliation Task 2: `capture/git/reconcile.py` — `upsert_commits`, `reconcile_runs`, `main()` CLI (`--repo`, `--all`, `--dry-run`) |
+| — | `6bb72d6` | Git reconciliation Task 3: post-capture `_reconcile_after_capture()` hook wired into `capture/claude_code/cli.py` — non-fatal, skipped on `--dry-run` |
+| — | `76d40a2` | Git reconciliation Task 4: `GET /runs/{run_id}/commits` read endpoint (`RunCommit` schema, `list_run_commits`) |
+| — | `1aa35f0` | Git reconciliation Task 5: commits section in run-detail UI (`renderCommits()` in `app.js`, `#commits` in `run.html`) |
+| — | `f53edb0` | Repo prepped for public release |
+| — | `8a8c1df` | README updated to document the shipped git reconciliation feature |
+| — | — | `scripts/agentops_capture_cron.sh`: scheduled capture wrapper (health-checks API, loads .env silently, appends to `logs/`); `docs/operations.md` added |
 
-**Live database:** 106 runs / ~13.2k events across 5 repos (agentops-core, leadle-os, leadle-content-studio, ai-native-revops-work-brain, ai-work-journal); 106 usage_metrics rows; cost_usd all NULL; started 2026-05-05, last captured 2026-06-19.
+**Live database (last recorded count):** 106 runs / ~13.2k events across 5 repos (agentops-core, leadle-os, leadle-content-studio, ai-native-revops-work-brain, ai-work-journal); 106 usage_metrics rows; cost_usd all NULL; started 2026-05-05, last captured 2026-06-19. See §4 note on historical backfill.
 
 ---
 
-## 4. Active Milestone — Git Commit Reconciliation
+## 4. Completed Milestone — Git Commit Reconciliation ✅
 
 **Design spec:** `docs/superpowers/specs/2026-06-25-git-reconciliation-design.md` (commit `a055ff9`)  
 **Implementation plan:** `docs/superpowers/plans/2026-06-25-git-reconciliation.md` (commit `77d7b0c`)  
-**Execution method:** Subagent-Driven Development (fresh implementer + reviewer per task)
+**Execution method:** Subagent-Driven Development (fresh implementer + reviewer per task)  
+**Shipped:** all 5 tasks complete as of `8a8c1df` (2026-07-15)
 
 ### Goal
 Connect captured runs to the git commits they produced. Enables shipped-outcome metrics (cost-per-feature, time-to-merge) and the git/PR-reconciled differentiation wedge.
@@ -150,83 +160,84 @@ Connect captured runs to the git commits they produced. Enables shipped-outcome 
 - Match window: `[run.started_at, run.ended_at + 30 minutes]`
 - Ambiguity resolution: process runs `ORDER BY ended_at DESC`; `ON CONFLICT DO NOTHING` → newest-win
 
-### Task Status
+### Task Status — all done
 
 | Task | Status | Commit(s) | Files |
 |---|---|---|---|
 | Task 1: `capture/git/query.py` + conftest | ✅ DONE | `601fb4e` | `capture/git/__init__.py`, `capture/git/query.py`, `tests/test_git_query.py`, `tests/conftest.py` |
-| Task 2: `capture/git/reconcile.py` + reconcile CLI | ⏳ PENDING | — | `capture/git/reconcile.py`, `tests/test_git_reconcile.py` |
-| Task 3: Post-capture step in `cli.py` | ⏳ PENDING | — | `capture/claude_code/cli.py` |
-| Task 4: `GET /runs/{run_id}/commits` read API | ⏳ PENDING | — | `app/routes/reads.py`, `app/models/reads.py`, `app/schemas/reads.py` |
-| Task 5: Commits section in run detail UI | ⏳ PENDING | — | `app/static/run.html`, `app/static/app.js` |
+| Task 2: `capture/git/reconcile.py` + reconcile CLI | ✅ DONE | `a6beb04`, `0b45c65` | `capture/git/reconcile.py`, `tests/test_git_reconcile.py`, `tests/test_git_reconcile_cli.py` |
+| Task 3: Post-capture step in `cli.py` | ✅ DONE | `6bb72d6` | `capture/claude_code/cli.py` (`_reconcile_after_capture()`) |
+| Task 4: `GET /runs/{run_id}/commits` read API | ✅ DONE | `76d40a2` | `app/routes/reads.py`, `tests/test_reads_commits.py` |
+| Task 5: Commits section in run detail UI | ✅ DONE | `1aa35f0` | `app/static/run.html`, `app/static/app.js` |
 
-**After all 5 tasks:** run `python -m capture.git.reconcile --all` to backfill 106 existing runs.
+### What each task actually delivers (verified against code)
 
-### Task 1 details (done — `601fb4e`)
+- **Task 1** — `query_commits(cwd, branch, after, before) -> list[dict]` — never raises; returns `[]` on any git failure; logs to stderr. 4 tests in `tests/test_git_query.py` using a real `git init` in a tmp dir with controlled commit timestamps.
+- **Task 2** — `upsert_commits()` (`INSERT ... ON CONFLICT (commit_sha) DO NOTHING`) and `reconcile_runs(conn, repository_id=None, dry_run=False)` — queries runs `WHERE ended_at IS NOT NULL AND branch IS NOT NULL AND cwd IS NOT NULL ORDER BY ended_at DESC`, matches each against `query_commits`, upserts. `main(argv)` CLI exposes `--repo REPOSITORY_ID`, `--all` (default), `--dry-run`. Returns `{"runs_processed": int, "commits_linked": int}`; DB query failures are caught and logged, never raised.
+- **Task 3** — `_reconcile_after_capture()` in `capture/claude_code/cli.py` runs after every successful ingest, imports `reconcile_runs` lazily, and is wrapped so any exception is caught, logged to stderr, and never changes the capture exit code.
+- **Task 4** — `GET /runs/{run_id}/commits` returns `list[RunCommit]`.
+- **Task 5** — `run.html` has a `#commits` section; `app.js` fetches `/runs/{id}/commits` and calls `renderCommits()`, which shows "No commits linked." when the list is empty.
 
-- `query_commits(cwd, branch, after, before) -> list[dict]` — never raises; returns `[]` on any git failure; logs to stderr
-- 4 tests in `tests/test_git_query.py` — uses real `git init` in tmp dir with controlled commit timestamps via env vars
-- `conftest.py` updated: commits cleaned up before runs in `cleanup_pytest_rows` (FK is SET NULL, not CASCADE)
-- 119/119 passing
+### Note on historical backfill
+
+Reconciliation now runs **automatically after every new capture** (Task 3). The 106 runs already in the live database as of the last recorded count were captured before this hook existed; whether they've since been backfilled with `python -m capture.git.reconcile --all` was not checked while writing this update (no DB query was run). Run that command manually if older runs are missing commit links.
 
 ---
 
 ## 5. What's Pending
 
-### Pending 1 — Remaining git reconciliation tasks (Tasks 2–5)
+Git commit reconciliation (§4) is done. The active gap is operational, not architectural: **capture has no scheduled job**. `python -m capture.claude_code.cli` still has to be run by hand — nothing pulls new transcripts into the database on its own. Everything downstream (read API, verification UI, git reconciliation) only reflects sessions someone remembered to capture.
 
-**Task 2** — `capture/git/reconcile.py` + CLI
+### Next Milestone — AgentOps Operationalization
 
-Create the reconcile module:
-- `upsert_commits(conn, run_id, repository_id, commits: list[dict])` — `INSERT ... ON CONFLICT (commit_sha) DO NOTHING`
-- `reconcile_runs(conn, repo_filter=None)` — queries runs WHERE `ended_at IS NOT NULL AND branch IS NOT NULL AND cwd IS NOT NULL ORDER BY ended_at DESC`, calls `query_commits`, upserts
-- `main(argv)` CLI — `--repo`, `--all`, `--dry-run` flags; prints per-run summary + totals
-- 3 tests: idempotent upsert, conflict-do-nothing (run A wins), end-to-end reconcile
+**1. Scheduled capture (top priority)**
 
-**Task 3** — Post-capture git step in `capture/claude_code/cli.py`
+Turn `capture/claude_code/cli.py` into an unattended job — e.g. a cron entry or systemd timer that runs `python -m capture.claude_code.cli --repo <id>` (or `--catch-all`) on a recurring interval, the same pattern already in production for `devlog ingest` (nightly cron) and `leadle-mom-automation` (15-minute systemd timer) elsewhere in this workspace. Once capture is scheduled, git reconciliation — already automatic per-capture (Task 3) — keeps commit links current with no further work.
 
-After `process()` returns, call `_reconcile_after_capture(session_id, repository_id, tool_id)`. Non-fatal: any exception is logged to stderr, never re-raised, never changes the exit code. Skipped on `--dry-run`.
+**2. Safe proof-summary / export for Content Intelligence**
 
-**Task 4** — `GET /runs/{run_id}/commits` read endpoint
+A read-only export surface that the `bhuvanesh-content-intelligence` work-corpus module (and similar consumers) can pull from without touching the database directly or seeing raw/sensitive event payloads — e.g. a summarized JSON/Markdown extract (repo, date range, run counts, token totals, shipped-commit counts) built from the existing read API, with redaction already applied. Not started; needs its own brainstorm on shape (which fields are safe to expose, what "proof" means for that consumer).
 
-Add `RunCommit(BaseModel)` schema, `list_run_commits(conn, run_id)` model, and `GET /runs/{run_id}/commits` route to reads.py. Returns `list[RunCommit]` ordered `committed_at ASC NULLS LAST`. Returns `[]` for unknown run (not 404). 2 tests.
+**3. Cross-repo structured search (later, optional)**
 
-**Task 5** — Commits section in run detail UI
-
-Add `<section id="commits-section">` with a `<table>` to `run.html`. Add `renderCommits()` function to `app.js` — all values via `textContent`, never `innerHTML`. Wire into `initRun()` as a third fetch after events. SHA displayed as 7-char `<code>`.
-
-### Pending 2 — Cross-repo structured search (AGENTS.md step #8)
-
-Not started. Will be brainstormed separately after git reconciliation ships. Design options:
-- Add `q` free-text param to `GET /runs` (searches `intent`, `summary`, `branch`, `human`)
-- Add dedicated `GET /search/events?q=` with GIN tsvector index on `run_events`
+Deprioritized relative to the two items above. Not started. Design options on the table if picked back up:
+- Add a `q` free-text param to `GET /runs` (searches `intent`, `summary`, `branch`, `human`)
+- A dedicated `GET /search/events?q=` with a GIN tsvector index on `run_events`
 - Choice of single endpoint vs. separate `/search` is the first brainstorm question
 
-### Pending 3 — Codex capture (AGENTS.md step #6, DEFERRED)
+### Still deferred — Codex capture
 
-Deferred — no Codex activity yet. Will be tackled once git reconciliation + search are done.
+No Codex activity yet observed. Remains deferred behind the operationalization milestone above.
 
 ---
 
 ## 6. Plan to Complete
 
-### Phase A: Close the First-Milestone DoD (in order)
+### Phase A: First-Milestone DoD — ✅ CLOSED
 
-**Step 1 — Git commit reconciliation** (active, Tasks 2–5 remaining)
-- Run SDD: dispatch Task 2 implementer → reviewer → Task 3 → 4 → 5 → final whole-branch review → push + PR → merge
-- Progress ledger: `.superpowers/sdd/progress.md`
-- BASE commit for review packages: `601fb4e`
+Git commit reconciliation (Tasks 1–5) shipped `8a8c1df`, 2026-07-15. No remaining work on this milestone.
 
-**Step 2 — Cross-repo structured search** (`feat/search` branch)
+### Phase A2: AgentOps Operationalization (active)
+
+**Step 1 — Scheduled capture** ✅ DONE
+- `scripts/agentops_capture_cron.sh` written — health-checks API, loads `.env` silently, runs capture, logs to `logs/agentops_capture.log`
+- Cron line documented in `docs/operations.md` (install manually with `crontab -e`)
+- Once cron is installed and stable, run `python -m capture.git.reconcile --all` once to backfill any pre-hook runs
+
+**Step 2 — Safe proof-summary / export for Content Intelligence**
+- Brainstorm the export shape with the Content Intelligence consumer in mind (what "proof" needs to look like, which fields are safe post-redaction)
+- Spec → plan → SDD execution once shape is agreed
+
+**Step 3 — Cross-repo structured search** (later, optional; `feat/search` branch)
 - Brainstorm → spec → plan → SDD execution
 - Builds directly on the existing read API whitelist pattern (`_FILTER_COLUMNS`)
 
-**Step 3 — Codex capture** (`feat/codex-capture` branch)
+**Step 4 — Codex capture** (deferred; `feat/codex-capture` branch)
 - Discover Codex session log format and storage path
 - Build `capture/codex/` adapter (same shape as `capture/claude_code/`): extractor + normalizer + identity + CLI
 - Normalize into the same `run_events` schema; add tests; backfill existing Codex sessions
 
-### Phase B: OTEL Enrichment (after DoD closed)
+### Phase B: OTEL Enrichment (after operationalization)
 
 - OTLP HTTP receiver endpoint in FastAPI (gRPC :4317 or HTTP :4318)
 - Parse `claude_code.api_request` span; match `session.id` → run; update `usage_metrics.cost_usd`
@@ -246,24 +257,16 @@ Deferred — no Codex activity yet. Will be tackled once git reconciliation + se
 
 ## 7. Next Session — Pick-Up Instructions
 
-1. **Resume git reconciliation at Task 2** (`capture/git/reconcile.py`)
-   ```bash
-   # Extract task brief
-   /home/bhuvanesh/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief \
-     docs/superpowers/plans/2026-06-25-git-reconciliation.md 2
-   # BASE commit (record before dispatching implementer)
-   git log --oneline -1   # should show 601fb4e
+1. **Install the cron job** (Step 1 of Operationalization is scripted; you just need to wire it up):
    ```
-   - Dispatch implementer (sonnet — multi-file integration task with DB writes + CLI)
-   - After implementer reports DONE: run `review-package 601fb4e HEAD`, dispatch reviewer
-
-2. **After all 5 tasks:** rebuild container and backfill:
-   ```bash
-   docker compose up -d --build api
-   set -a; . ./.env; set +a; python -m capture.git.reconcile --all
+   crontab -e
+   # Add: */30 * * * * /home/bhuvanesh/AI_Native_Workspace/10-platform/agentops_core/scripts/agentops_capture_cron.sh
    ```
+   Then run `python -m capture.git.reconcile --all` once to backfill any runs captured before the post-capture hook (Task 3) existed. See `docs/operations.md` for the full runbook.
 
-3. **After git reconciliation ships:** start cross-repo search brainstorm session.
+2. **Then move to Step 2 — safe proof-summary / export for Content Intelligence.** Brainstorm the export shape with that consumer's actual needs before speccing.
+
+3. **Cross-repo search and Codex capture stay deferred** behind the two steps above — do not start them first.
 
 4. **Progress ledger** is at `.superpowers/sdd/progress.md` — append one line per task when reviewed clean.
 
