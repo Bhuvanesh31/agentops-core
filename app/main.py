@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import close_pool, init_pool
-from app.routes import events, health, reads, repositories
+from app.routes import events, health, proof, reads, repositories
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(events.router)
     app.include_router(repositories.router)
     app.include_router(reads.router)
+    app.include_router(proof.router)
     # Minimal read-only verification UI (static files consuming the JSON API).
     # Path is resolved relative to this package so it works both from source
     # (tests) and from the installed wheel (container).

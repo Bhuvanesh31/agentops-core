@@ -8,10 +8,12 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 from datetime import timedelta
+from pathlib import Path
 
 import psycopg
 from psycopg.rows import dict_row
@@ -266,6 +268,13 @@ def main(argv: list[str] | None = None) -> int:
         f"skipped_missing_branch={result['skipped_missing_branch']} "
         f"failed_unexpected={result['failed_unexpected']}"
     )
+    if not result["dry_run"]:
+        try:
+            logs_dir = Path(__file__).resolve().parents[2] / "logs"
+            logs_dir.mkdir(exist_ok=True)
+            (logs_dir / "last_reconcile.json").write_text(json.dumps(result))
+        except OSError:
+            pass  # non-fatal; proof export will show nulls for skip counters
     return 0
 
 

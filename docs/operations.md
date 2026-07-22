@@ -210,6 +210,63 @@ To backfill sessions previously routed to catch-all, use the reclassify command 
 
 ---
 
+## Proof export (Content Intelligence)
+
+Produces a content-safe JSON snapshot for consumption by Brain Refresh or other downstream tools.
+No raw payloads, prompts, transcripts, diffs, file contents, or secrets are included.
+Commit subjects, counts, token totals, and timestamps are included.
+
+### CLI
+
+```bash
+set -a; . ./.env; set +a
+.venv/bin/python -m capture.proof_export                      # print to stdout
+.venv/bin/python -m capture.proof_export --output /tmp/proof.json   # write to file
+```
+
+### API
+
+```bash
+curl -s http://localhost:8000/proof-summary | python3 -m json.tool
+```
+
+### What is included
+
+| Field | Included |
+|---|---|
+| Run counts, event counts | ✓ |
+| Token counts (input, output, cached) | ✓ |
+| Repository and project names | ✓ |
+| Commit subjects (first line of message) | ✓ |
+| Timestamps (started_at, ended_at, committed_at) | ✓ |
+| Reconciliation skip counters | ✓ (from `logs/last_reconcile.json`) |
+
+### What is excluded
+
+| Data | Status |
+|---|---|
+| `raw_payload` column contents | **Never included** |
+| Prompt text | **Never included** |
+| Transcript content | **Never included** |
+| Diffs or file contents | **Never included** |
+| Credentials or secrets | **Never included** |
+| Client-sensitive content | **Never included** |
+
+The `export_safety` block in every export confirms these flags at runtime.
+
+### Reconciliation skip counters
+
+Skip counters (`skipped_stale_cwd`, etc.) are read from `logs/last_reconcile.json`, which is
+written automatically after each non-dry-run reconcile. If the file is absent, those fields
+are `null`. Re-run reconcile to refresh:
+
+```bash
+set -a; . ./.env; set +a
+.venv/bin/python -m capture.git.reconcile --all
+```
+
+---
+
 ## Stack management
 
 ```bash
